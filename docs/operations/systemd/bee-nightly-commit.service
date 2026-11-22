@@ -1,0 +1,12 @@
+[Unit]
+Description=Bee nightly commit and push (workspace, redacted session history)
+Documentation=file://%h/projects/bee/docs/operations/session-store.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Installed from docs/operations/bee-nightly-commit.sh.
+ExecStart=%h/.local/bin/bee-nightly-commit
+Nice=10
+TimeoutStartSec=15min

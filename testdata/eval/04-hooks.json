@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "name": "lifecycle hook invocation",
+  "turns": [
+    {
+      "prompt": "exercise hooks",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "hook-1",
+              "type": "function",
+              "name": "inspect_fixture",
+              "arguments": "{}"
+            }
+          ]
+        },
+        {"content": "done"}
+      ]
+    }
+  ],
+  "tools": [
+    {"name": "inspect_fixture", "output": "fixture", "mutability": "read_only"}
+  ],
+  "hooks": [
+    {"point": "session.start", "output": "start"},
+    {"point": "pre_tool_call", "output": "pre"},
+    {"point": "post_tool_call", "output": "post"},
+    {"point": "session.end", "output": "end"}
+  ],
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "hook", "outcome": "succeeded", "point": "session.start", "hook_index": 0},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "inspect_fixture", "args": {}},
+    {"kind": "hook", "outcome": "succeeded", "point": "pre_tool_call", "hook_index": 1},
+    {"kind": "hook", "outcome": "succeeded", "point": "post_tool_call", "hook_index": 2},
+    {"kind": "tool_result", "tool": "inspect_fixture", "outcome": "succeeded"},
+    {"kind": "hook", "outcome": "succeeded", "point": "session.end", "hook_index": 3}
+  ]
+}

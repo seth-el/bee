@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "name": "configured recurring job creates a fresh journaled session",
+  "turns": [
+    {
+      "prompt": "inspect the recurring fixture",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "recurring-1",
+              "type": "function",
+              "name": "inspect_fixture",
+              "arguments": "{\"target\":\"scheduled\"}"
+            }
+          ]
+        },
+        {
+          "content": "done"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "inspect_fixture",
+      "kind": "static",
+      "output": "bounded recurring observation",
+      "mutability": "read_only"
+    }
+  ],
+  "recurring": {
+    "start_at": "2026-01-02T03:04:00Z",
+    "tick_at": "2026-01-02T03:04:00Z",
+    "interval_seconds": 3600,
+    "allowed_tools": ["inspect_fixture"]
+  },
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "inspect_fixture", "args": {"target": "scheduled"}},
+    {"kind": "tool_result", "tool": "inspect_fixture", "outcome": "succeeded"},
+    {"kind": "job", "outcome": "succeeded"}
+  ]
+}

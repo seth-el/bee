@@ -1,0 +1,17 @@
+[Unit]
+Description=Bee LAN gateway (web-only)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/bee-gateway --config %h/.bee/config.json --listen 0.0.0.0:18790
+Restart=on-failure
+RestartSec=2
+
+NoNewPrivileges=true
+PrivateTmp=true
+# The UI has no application authentication yet; restrict port 18790 to the
+# intended trusted LAN in the VM/host firewall.
+
+[Install]
+WantedBy=default.target

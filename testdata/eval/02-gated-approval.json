@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "name": "gated approval and mutation journal",
+  "turns": [
+    {
+      "prompt": "write the fixture",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "write-1",
+              "type": "function",
+              "name": "write_file",
+              "arguments": "{\"path\":\"result.txt\",\"content\":\"golden\"}"
+            }
+          ]
+        },
+        {"content": "done"}
+      ]
+    }
+  ],
+  "tools": [
+    {"name": "write_file", "kind": "write_file", "mutability": "mutating"}
+  ],
+  "approval": "approved",
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "write_file", "args": {"content": "golden", "path": "result.txt"}},
+    {"kind": "approval", "tool": "write_file", "outcome": "approved"},
+    {"kind": "tool_result", "tool": "write_file", "outcome": "succeeded"},
+    {"kind": "mutation", "tool": "write_file", "path": "result.txt", "outcome": "recorded"}
+  ]
+}

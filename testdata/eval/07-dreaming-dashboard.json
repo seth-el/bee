@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "name": "recurring dreaming job writes the memory dashboard and the next session observes it",
+  "turns": [
+    {
+      "prompt": "consolidate yesterday into the memory dashboard",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "dream-1",
+              "type": "function",
+              "name": "write_file",
+              "arguments": "{\"path\":\"dashboard/MEMORY.md\",\"content\":\"# State\\n\\n- active: golden dreaming fixture\\n\",\"operation\":\"create\"}"
+            }
+          ]
+        },
+        {"content": "done"}
+      ]
+    }
+  ],
+  "tools": [
+    {"name": "write_file", "kind": "write_file", "mutability": "mutating"}
+  ],
+  "approval": "approved",
+  "recurring": {
+    "start_at": "2026-03-08T08:00:00Z",
+    "tick_at": "2026-03-08T08:00:00Z",
+    "interval_seconds": 86400,
+    "allowed_tools": ["write_file"],
+    "follow_up": {
+      "prompt": "good morning",
+      "responses": [{"content": "morning"}]
+    }
+  },
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "write_file", "args": {"content": "# State\n\n- active: golden dreaming fixture\n", "operation": "create", "path": "dashboard/MEMORY.md"}},
+    {"kind": "approval", "tool": "write_file", "outcome": "approved"},
+    {"kind": "tool_result", "tool": "write_file", "outcome": "succeeded"},
+    {"kind": "mutation", "tool": "write_file", "path": "dashboard/MEMORY.md", "outcome": "recorded"},
+    {"kind": "job", "outcome": "succeeded"},
+    {"kind": "next_session_prefix", "path": "dashboard/MEMORY.md", "outcome": "present"}
+  ]
+}

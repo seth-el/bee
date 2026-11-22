@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "MCP tool invocation",
+  "turns": [
+    {
+      "prompt": "call the MCP fixture",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "mcp-1",
+              "type": "function",
+              "name": "mcp_fixture_echo",
+              "arguments": "{\"text\":\"hello\"}"
+            }
+          ]
+        },
+        {"content": "done"}
+      ]
+    }
+  ],
+  "mcp": {"name": "fixture"},
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "mcp_fixture_echo", "args": {"text": "hello"}},
+    {"kind": "tool_result", "tool": "mcp_fixture_echo", "outcome": "succeeded"}
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "durable session resume",
+  "turns": [
+    {
+      "prompt": "first turn",
+      "responses": [
+        {
+          "tool_calls": [
+            {"id": "resume-1", "type": "function", "name": "resume_probe", "arguments": "{\"phase\":1}"}
+          ]
+        },
+        {"content": "first done"}
+      ]
+    },
+    {
+      "prompt": "second turn",
+      "responses": [
+        {
+          "tool_calls": [
+            {"id": "resume-2", "type": "function", "name": "resume_probe", "arguments": "{\"phase\":2}"}
+          ]
+        },
+        {"content": "second done"}
+      ]
+    }
+  ],
+  "tools": [
+    {"name": "resume_probe", "output": "observed", "mutability": "read_only"}
+  ],
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "resume_probe", "args": {"phase": 1}},
+    {"kind": "tool_result", "tool": "resume_probe", "outcome": "succeeded"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "resume_probe", "args": {"phase": 2}},
+    {"kind": "tool_result", "tool": "resume_probe", "outcome": "succeeded"}
+  ]
+}

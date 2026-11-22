@@ -1,0 +1,58 @@
+image: golang:1.22-bookworm
+
+stages:
+  - verify
+  - test
+  - build
+
+variables:
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
+  GOVULNCHECK_VERSION: "v1.1.4"
+
+cache:
+  key: "go-${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .cache/go-build
+    - .cache/go-mod
+
+verify:
+  stage: verify
+  script:
+    - ./scripts/check-shell.sh
+    - test -z "$(gofmt -l $(find . -type f -name '*.go' -not -path './generated/*' -print))"
+    - go vet ./...
+
+unit:
+  stage: test
+  script:
+    - go test -count=1 -coverprofile=coverage.out ./...
+    - go run ./cmd/bee-eval run testdata/eval
+  coverage: '/coverage: ([0-9]+\.[0-9]+)% of statements/'
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - coverage.out
+
+race:
+  stage: test
+  script:
+    - go test -race -count=1 ./...
+
+vulnerability_scan:
+  stage: test
+  script:
+    - go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+
+build:
+  stage: build
+  script:
+    - CGO_ENABLED=0 go build -trimpath -o bee-ci ./cmd/bee
+    - ./bee-ci version | tee version.txt
+    - test -z "$(grep 'unknown' version.txt || true)"
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - bee-ci
+      - version.txt

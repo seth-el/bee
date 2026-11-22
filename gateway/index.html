@@ -1,0 +1,3106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/assets/bee-mascot.svg?v=20260919-perf1">
+<link rel="icon" type="image/png" sizes="512x512" href="/assets/bee-mascot-home.png?v=20260919-perf1">
+<link rel="apple-touch-icon" sizes="512x512" href="/assets/bee-mascot-home.png?v=20260919-perf1">
+<title>Bee // local gateway</title>
+<style>
+:root {
+  color-scheme: dark;
+  --topbar-height: 56px;
+  --bg: #100d0d;
+  --panel: #171313;
+  --panel-raised: #201a19;
+  --panel-soft: #241c1a;
+  --line: #3b2a28;
+  --line-strong: #60403a;
+  --text: #d8cfb1;
+  --muted: #9f957c;
+  --faint: #716858;
+  --cream: #eee2bb;
+  --accent: #b7674c;
+  --accent-hot: #d47b53;
+  --red: #9d5149;
+  --green: #8a985e;
+  --shadow: rgba(0, 0, 0, .35);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; min-height: 100%; overflow: hidden; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(116, 61, 44, .12), transparent 34rem),
+    linear-gradient(145deg, #0d0a0a 0%, var(--bg) 55%, #120d0d 100%);
+  color: var(--text);
+  font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+button, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+.app-shell { height: 100%; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  flex: 0 0 var(--topbar-height); min-height: var(--topbar-height); padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--line); background: rgba(16, 13, 13, .9); box-shadow: 0 8px 28px var(--shadow);
+}
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.notification-button { position: relative; min-height: 44px; border: 1px solid var(--line-strong); border-radius: 3px; padding: 7px 10px; color: var(--muted); background: var(--panel); }
+.notification-button:hover, .notification-button:focus-visible { border-color: var(--accent); color: var(--cream); }
+.notification-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 5px; padding: 0 4px; border-radius: 9px; color: var(--cream); background: var(--red); font-size: 10px; line-height: 1; }
+.notification-badge[hidden] { display: none; }
+.notification-panel { position: fixed; top: calc(var(--topbar-height) - 1px); right: 24px; z-index: 80; width: min(28rem, calc(100vw - 30px)); max-height: min(32rem, calc(100vh - var(--topbar-height) - 16px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel-raised); box-shadow: 0 18px 48px var(--shadow); }
+.notification-panel[hidden] { display: none; }
+.notification-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--cream); font-size: 12px; }
+.notification-list { max-height: min(27rem, calc(100vh - var(--topbar-height) - 70px)); overflow-y: auto; }
+.notification-empty { padding: 18px 14px; color: var(--faint); font-size: 11px; }
+.notification-item { display: grid; gap: 5px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.notification-item.unread { background: rgba(183, 103, 76, .08); }
+.notification-item-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: var(--cream); font-size: 11px; }
+.notification-item-meta { color: var(--faint); font-size: 10px; }
+.notification-item-error { color: #d59b8b; font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.notification-item button, .notification-load-older { min-height: 44px; justify-self: start; padding: 8px 10px; color: var(--muted); background: transparent; }
+.notification-load-older { width: 100%; border: 0; border-top: 1px solid var(--line); }
+.notification-load-older[hidden] { display: none; }
+.brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; color: inherit; text-decoration: none; }
+.brand-avatar { display: block; width: 30px; height: 30px; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .2)); }
+.brand-mark { color: var(--accent-hot); font-size: 18px; font-weight: 700; letter-spacing: .12em; }
+.workspace { position: relative; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr); overflow: hidden; }
+.sidebar { min-height: 0; border-right: 1px solid var(--line); background: rgba(20, 16, 16, .72); padding: 22px 14px 16px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; transition: padding .15s ease; }
+.sidebar-heading { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; color: var(--faint); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.sidebar-toggle { min-width: 34px; padding: 5px 9px; color: var(--accent-hot); font-size: 18px; line-height: 1; }
+/* Keep these panes scrollable while removing browser chrome that competes with the compact layout. */
+.scrollbar-hidden { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hidden::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.session-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; overflow-x: hidden; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.project-controls { display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.project-picker { position: relative; min-width: 0; flex: 1 1 auto; }
+.project-filter, .session-project-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 3px; padding: 8px 9px; color: var(--text); background: var(--panel); text-align: left; }
+.project-filter:hover:not(:disabled), .project-filter:focus-visible, .session-project-trigger:hover:not(:disabled), .session-project-trigger:focus-visible { border-color: var(--accent); color: var(--cream); }
+.project-filter-label, .session-project-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-filter-chevron, .session-project-chevron { color: var(--faint); flex: 0 0 auto; }
+.project-picker-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; max-height: min(18rem, calc(100vh - 16px)); overflow-y: auto; padding: 4px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-raised); box-shadow: 0 8px 22px var(--shadow); }
+.project-picker-menu[hidden] { display: none; }
+.project-picker-option { display: block; width: 100%; border: 1px solid transparent; border-radius: 2px; padding: 7px 9px; color: var(--text); background: transparent; text-align: left; }
+.project-picker-option:hover, .project-picker-option:focus-visible, .project-picker-option[aria-selected="true"] { border-color: var(--line-strong); background: var(--panel-soft); color: var(--cream); }
+.project-picker-option[aria-selected="true"]::before { content: "› "; color: var(--accent-hot); }
+.project-create { flex: 0 0 auto; padding: 8px 9px; }
+.session-search { display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.session-search input { min-width: 0; flex: 1 1 auto; border: 1px solid var(--line-strong); border-radius: 3px; padding: 8px 9px; color: var(--text); background: var(--panel); }
+.session-search input:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
+.session-search button { flex: 0 0 auto; padding: 7px 9px; }
+.search-result-entry { padding-bottom: 8px; }
+.search-result-snippet { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-role { color: var(--accent-hot); margin-right: 5px; text-transform: uppercase; }
+.project-list { display: flex; flex: 0 0 auto; flex-direction: column; gap: 4px; max-height: 9rem; overflow-y: auto; }
+.project-row { position: relative; display: flex; align-items: stretch; gap: 4px; }
+.project-entry { min-width: 0; flex: 1 1 auto; border: 1px solid transparent; border-radius: 3px; padding: 6px 9px; color: var(--muted); background: transparent; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-entry:hover, .project-entry.active { border-color: var(--line-strong); background: var(--panel-raised); color: var(--cream); }
+.project-entry.unassigned { color: var(--faint); }
+.project-menu-wrap { position: relative; flex: 0 0 auto; }
+.project-menu-trigger { width: 2rem; min-width: 2rem; padding: 4px; border: 1px solid transparent; border-radius: 3px; color: var(--faint); background: transparent; font-size: 16px; line-height: 1; }
+.project-menu-trigger:hover:not(:disabled), .project-menu-trigger:focus-visible { border-color: var(--line-strong); background: var(--panel-raised); color: var(--cream); }
+.project-menu { position: fixed; z-index: 50; min-width: 11rem; max-width: calc(100vw - 16px); max-height: min(18rem, calc(100vh - 16px)); overflow-y: auto; padding: 4px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-raised); box-shadow: 0 8px 22px var(--shadow); }
+.project-menu[hidden] { display: none; }
+.project-menu-item { display: block; width: 100%; border: 1px solid transparent; border-radius: 2px; padding: 7px 9px; color: var(--text); background: transparent; text-align: left; }
+.project-menu-item:hover:not(:disabled), .project-menu-item:focus-visible { border-color: var(--line-strong); background: var(--panel-soft); color: var(--cream); }
+.project-menu-item.danger { color: #d59b8b; }
+.project-menu-item.danger:hover:not(:disabled), .project-menu-item.danger:focus-visible { border-color: var(--red); background: rgba(157, 81, 73, .12); color: #e0a294; }
+.session-entry, .new-session {
+  border: 1px solid transparent; border-radius: 3px; text-align: left; color: var(--text); background: transparent; padding: 10px 11px;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.session-row { position: relative; display: flex; align-items: stretch; gap: 4px; }
+.session-entry { min-width: 0; flex: 1 1 auto; }
+.session-entry:hover, .session-entry.active { border-color: var(--line-strong); background: var(--panel-raised); color: var(--cream); }
+.session-entry.active { box-shadow: inset 3px 0 0 var(--accent); }
+.session-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-title-line { display: flex; align-items: center; min-width: 0; gap: 6px; }
+.session-title-line .session-title { min-width: 0; flex: 1 1 auto; }
+.session-pin { flex: 0 0 auto; color: var(--accent-hot); font-size: 11px; line-height: 1; }
+.session-time { display: block; color: var(--faint); font-size: 10px; margin-top: 3px; }
+.session-count { color: var(--faint); font-size: 10px; margin-left: 6px; }
+.session-menu-wrap { position: relative; flex: 0 0 auto; }
+.session-menu-trigger { width: 2rem; min-width: 2rem; padding: 5px 4px; border: 1px solid transparent; border-radius: 3px; color: var(--faint); background: transparent; font-size: 16px; line-height: 1; }
+.session-menu-trigger:hover:not(:disabled), .session-menu-trigger:focus-visible { border-color: var(--line-strong); background: var(--panel-raised); color: var(--cream); }
+.session-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 10; min-width: 10rem; padding: 4px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-raised); box-shadow: 0 8px 22px var(--shadow); }
+.session-menu[hidden] { display: none; }
+.session-menu-item { display: block; width: 100%; border: 1px solid transparent; border-radius: 2px; padding: 7px 9px; color: var(--text); background: transparent; text-align: left; }
+.session-menu-item:hover:not(:disabled), .session-menu-item:focus-visible { border-color: var(--line-strong); background: var(--panel-soft); color: var(--cream); }
+.session-menu-item.danger { color: #d59b8b; }
+.session-menu-item.danger:hover:not(:disabled), .session-menu-item.danger:focus-visible { border-color: var(--red); background: rgba(157, 81, 73, .12); color: #e0a294; }
+.new-session { border-color: var(--line); color: var(--accent-hot); }
+.new-session:hover { background: var(--panel-raised); border-color: var(--accent); }
+.sidebar-foot { margin-top: auto; color: var(--faint); font-size: 10px; line-height: 1.6; }
+.chat-panel { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.chat-header { flex: 0 0 auto; min-height: 70px; padding: 18px 30px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.chat-header-leading { min-width: 0; display: flex; align-items: center; gap: 12px; }
+.mobile-sidebar-toggle { display: none; flex: 0 0 auto; border: 1px solid var(--line-strong); border-radius: 3px; padding: 7px 9px; color: var(--accent-hot); background: var(--panel-raised); font-size: 18px; line-height: 1; }
+.mobile-sidebar-toggle:hover:not(:disabled), .mobile-sidebar-toggle:focus-visible { border-color: var(--accent); color: var(--cream); }
+.mobile-sidebar-close { display: none; }
+.sidebar-backdrop { display: block; position: fixed; inset: var(--topbar-height) 0 0; z-index: 20; background: rgba(0, 0, 0, .56); }
+.sidebar-backdrop[hidden] { display: none; }
+.chat-heading { min-width: 0; }
+.chat-title { color: var(--cream); font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-meta { color: var(--faint); font-size: 10px; margin-top: 4px; }
+.session-project-picker { display: inline-flex; align-items: center; gap: 7px; color: var(--faint); font-size: 10px; white-space: nowrap; }
+.session-project-picker .project-picker { flex: 0 0 auto; width: min(32vw, 14rem); }
+.session-project-picker .session-project-trigger { padding: 5px 7px; font-size: 11px; }
+.session-project-picker .project-picker-menu { min-width: 14rem; right: 0; left: auto; }
+details { color: var(--muted); }
+details summary { cursor: pointer; color: var(--faint); font-size: 11px; }
+.session-id { color: var(--faint); font-size: 10px; margin-top: 6px; word-break: break-all; }
+.messages { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 28px clamp(18px, 7vw, 110px) 24px; scroll-behavior: smooth; }
+.messages.live-streaming { scroll-behavior: auto; }
+.history-window-controls { display: flex; justify-content: center; min-height: 2.5rem; margin: 0 auto 12px; }
+.history-window-controls[hidden] { display: none; }
+.history-window-controls button { border: 1px solid var(--line-strong); border-radius: 3px; padding: 7px 11px; color: var(--muted); background: var(--panel-raised); }
+.history-window-controls button:hover:not(:disabled), .history-window-controls button:focus-visible { border-color: var(--accent); color: var(--cream); }
+.empty-state { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100%; margin: 0; padding: 24px; border: 0; background: transparent; text-align: center; line-height: 1.5; }
+.empty-state-copy { max-width: 34rem; }
+.empty-state[hidden] { display: none; }
+.empty-kicker { color: var(--accent); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+.empty-state h1 { color: var(--cream); font-size: 24px; font-weight: 500; margin: 12px 0 8px; }
+.empty-state p { color: var(--muted); margin: 0; }
+.message-row { display: flex; align-items: flex-end; gap: 10px; margin: 0 auto 18px; max-width: 860px; }
+.message-row.user { justify-content: flex-end; }
+.message-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--cream); background: var(--panel-soft); font-size: 11px; font-weight: 700; letter-spacing: .04em; line-height: 1; }
+.message-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.message-row.user .message-avatar { order: 2; border-color: #6a4639; background: #3b2923; }
+.message-content { display: flex; min-width: 0; max-width: min(78ch, calc(100% - 42px)); flex-direction: column; }
+.message-row.assistant .message-content { align-items: flex-start; }
+.message-row.user .message-content { align-items: flex-end; }
+.bubble { width: fit-content; max-width: 100%; padding: 12px 15px; border: 1px solid var(--line); box-shadow: 0 7px 20px rgba(0, 0, 0, .12); white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-time { display: block; max-width: 100%; margin: 5px 6px 0; color: #b7ac8e; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.3; white-space: nowrap; }
+.message-row.user .message-time { margin-right: 8px; text-align: right; }
+.bubble.user { border-color: #5d4135; background: #3b2923; color: var(--cream); border-radius: 8px 8px 2px 8px; }
+.bubble.assistant { background: var(--panel-raised); color: var(--text); border-radius: 2px 8px 8px 8px; }
+.bubble.streaming::after { content: " ▌"; color: var(--accent-hot); animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.notice { max-width: 860px; margin: 0 auto 14px; padding: 8px 12px; border-left: 2px solid var(--line-strong); color: var(--muted); font-size: 11px; background: rgba(32, 26, 25, .42); }
+.notice.error { border-left-color: var(--red); color: #d59b8b; }
+.notice.success { border-left-color: var(--green); }
+.artifact-card { max-width: 860px; margin: 0 auto 14px; padding: 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: rgba(32, 26, 25, .72); box-shadow: 0 7px 20px rgba(0,0,0,.12); }
+.artifact-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.artifact-card-title { min-width: 0; color: var(--cream); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artifact-card-meta { margin-top: 3px; color: var(--faint); font-size: 10px; }
+.artifact-card-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.artifact-card-actions a { border: 1px solid var(--line-strong); border-radius: 2px; padding: 4px 7px; color: var(--muted); text-decoration: none; font-size: 10px; }
+.artifact-card-actions a:hover { border-color: var(--accent); color: var(--cream); }
+.artifact-preview { max-height: 18rem; margin: 10px 0 0; padding: 9px; overflow: auto; border: 1px solid var(--line); color: var(--text); background: #120f0f; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.artifact-preview[hidden] { display: none; }
+.artifact-card audio { width: 100%; margin-top: 10px; }
+.artifact-card video { display: block; width: 100%; max-height: 24rem; margin-top: 10px; background: #120f0f; }
+.artifact-card-image { display: block; max-width: 100%; max-height: 24rem; margin: 10px auto 0; border: 1px solid var(--line); background: #120f0f; object-fit: contain; }
+.attachment-card { max-width: 860px; margin: 0 auto 14px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: rgba(32, 26, 25, .58); }
+.attachment-card.pending { border-color: var(--accent); }
+.attachment-card.error { border-color: var(--red); color: #d59b8b; }
+.attachment-card-preview { display: block; max-width: 100%; max-height: 16rem; margin-top: 9px; border: 1px solid var(--line); background: #120f0f; }
+.attachment-card audio { width: 100%; margin-top: 9px; }
+.attachment-chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 11px 0; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 8px; color: var(--muted); background: var(--panel-raised); font-size: 10px; }
+.attachment-chip button { border: 0; padding: 0 2px; color: var(--accent-hot); background: transparent; }
+.upload-progress { min-height: 1.2em; padding: 4px 11px 0; color: var(--faint); font-size: 10px; }
+.tool-event { display: none; padding: 0; overflow: hidden; }
+.tool-event summary { padding: 8px 12px; color: var(--muted); list-style-position: inside; }
+.tool-event summary::marker { color: var(--accent-hot); }
+.tool-event[open] summary { border-bottom: 1px solid var(--line); color: var(--cream); }
+.tool-event pre { max-height: 32rem; margin: 0; padding: 10px 12px; overflow: auto; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.reasoning-event { display: block; margin: 0 auto 12px; max-width: 860px; border-color: #514668; }
+.reasoning-event summary { color: #b9a8d8; }
+.reasoning-event pre { max-height: 24rem; color: #c9bfdc; }
+.media-search-card { max-width: 860px; margin: 0 auto 14px; padding: 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: rgba(32, 26, 25, .72); }
+.media-search-card h3 { margin: 0 0 8px; color: var(--cream); font-size: 12px; font-weight: 600; }
+.media-search-candidate { display: grid; gap: 4px; padding: 9px 0; border-top: 1px solid var(--line); }
+.media-search-candidate:first-of-type { border-top: 0; }
+.media-search-candidate-title { color: var(--cream); font-weight: 600; overflow-wrap: anywhere; }
+.media-search-candidate-meta, .media-search-candidate-snippet { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.media-search-candidate-source { color: var(--faint); font-size: 10px; overflow-wrap: anywhere; }
+.media-search-candidate button { justify-self: start; margin-top: 3px; border: 1px solid var(--line-strong); border-radius: 2px; padding: 5px 8px; color: var(--text); background: var(--panel-raised); }
+.media-search-candidate button:hover:not(:disabled) { border-color: var(--accent); color: var(--cream); }
+.markdown { white-space: normal; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown p, .markdown blockquote, .markdown ul, .markdown ol, .markdown pre, .markdown .markdown-code { margin: 0 0 12px; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: 0 0 10px; color: var(--cream); line-height: 1.25; }
+.markdown h1 { font-size: 1.45em; } .markdown h2 { font-size: 1.3em; } .markdown h3 { font-size: 1.15em; }
+.markdown ul, .markdown ol { padding-left: 24px; }
+.markdown li + li { margin-top: 4px; }
+.markdown blockquote { padding: 6px 12px; border-left: 2px solid var(--accent); color: var(--muted); }
+.markdown hr { margin: 16px 0; border: 0; border-top: 1px solid var(--line-strong); }
+.markdown code { padding: 1px 4px; border: 1px solid var(--line); border-radius: 2px; color: var(--cream); background: rgba(0, 0, 0, .2); }
+.markdown-code { overflow: hidden; border: 1px solid var(--line); border-radius: 3px; background: #120f0f; }
+.markdown-code-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px; border-bottom: 1px solid var(--line); color: var(--faint); font-size: 10px; }
+.markdown-code-copy { padding: 3px 7px; border: 1px solid var(--line-strong); border-radius: 2px; color: var(--muted); background: transparent; font-size: 10px; }
+.markdown-code-copy:hover:not(:disabled) { border-color: var(--accent); color: var(--cream); }
+.markdown-code pre { margin: 0; padding: 10px 12px; overflow-x: auto; color: var(--text); white-space: pre; font: inherit; }
+.markdown-code code { display: block; padding: 0; border: 0; color: inherit; background: transparent; }
+.markdown-code .syntax-keyword { color: #d47b53; }
+.markdown-code .syntax-string { color: #b9b875; }
+.markdown-code .syntax-comment { color: #817768; font-style: italic; }
+.markdown-code .syntax-number { color: #c58cba; }
+.markdown-code .syntax-literal { color: #d6a15d; }
+.markdown-code .syntax-type { color: #c59b78; }
+.markdown-code .syntax-property { color: #d8cfb1; }
+.markdown-code .syntax-operator { color: #c98b72; }
+.markdown a { color: var(--accent-hot); text-decoration: underline; text-underline-offset: 2px; }
+.markdown-table-frame { max-width: 100%; margin: 0 0 12px; }
+.markdown-table-scroll-hint { display: block; margin: 0 2px 4px; color: var(--faint); font-size: 9px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
+.markdown-table-scroll-hint[hidden] { display: none; }
+.markdown-table-wrapper { max-width: 100%; overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 3px; background: rgba(18, 15, 15, .72); overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; -webkit-overflow-scrolling: touch; }
+.markdown-table-wrapper::-webkit-scrollbar { height: 7px; }
+.markdown-table-wrapper::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--line-strong); }
+.markdown-table-wrapper:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.markdown-table { width: max-content; min-width: 100%; border-collapse: collapse; table-layout: auto; font-variant-numeric: tabular-nums; }
+.markdown-table th, .markdown-table td { min-width: 5rem; padding: 7px 10px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); vertical-align: top; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.markdown-table th:last-child, .markdown-table td:last-child { border-right: 0; }
+.markdown-table tbody tr:last-child td { border-bottom: 0; }
+.markdown-table th { color: var(--cream); background: rgba(96, 64, 58, .2); font-weight: 600; }
+.markdown-table .markdown-table-align-left { text-align: left; }
+.markdown-table .markdown-table-align-center { text-align: center; }
+.markdown-table .markdown-table-align-right { text-align: right; }
+@media (max-width: 760px) {
+  .markdown-table-wrapper { margin-right: -2px; }
+  .markdown-table th, .markdown-table td { min-width: 4.5rem; padding: 7px 8px; }
+}
+.rename-dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, .7); }
+.rename-dialog-backdrop[hidden] { display: none; }
+.rename-dialog { width: min(32rem, 100%); border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel-raised); box-shadow: 0 18px 48px var(--shadow); }
+.rename-dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.rename-dialog-title { margin: 0; color: var(--cream); font-size: 15px; font-weight: 600; }
+.rename-dialog-body { display: grid; gap: 8px; padding: 16px 18px; }
+.rename-dialog-body label { color: var(--muted); font-size: 11px; }
+.rename-dialog-body input { width: 100%; border: 1px solid var(--line-strong); border-radius: 3px; padding: 9px; color: var(--cream); background: var(--panel); }
+.rename-dialog-body input:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
+.rename-dialog-error { min-height: 1.2em; color: #d59b8b; font-size: 11px; }
+.rename-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+.composer-wrap { border-top: 1px solid var(--line); background: rgba(16, 13, 13, .94); padding: 22px clamp(18px, 7vw, 110px); }
+.composer { max-width: 860px; margin: 0 auto; }
+.composer-box { border: 1px solid var(--line-strong); background: var(--panel); box-shadow: 0 10px 30px var(--shadow); }
+textarea { display: block; width: 100%; min-height: 54px; max-height: 220px; resize: vertical; border: 0; outline: 0; padding: 14px 15px; background: transparent; color: var(--cream); line-height: 1.5; }
+#prompt { resize: none; overflow-y: hidden; }
+#prompt[data-overflowing="true"] { overflow-y: auto; }
+textarea::placeholder { color: var(--faint); }
+.composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border-top: 1px solid var(--line); }
+.composer-hint { color: var(--faint); font-size: 10px; }
+.actions { display: flex; gap: 8px; }
+.action { border: 1px solid var(--line-strong); border-radius: 2px; padding: 7px 12px; color: var(--text); background: var(--panel-raised); }
+.action:hover:not(:disabled) { border-color: var(--accent); color: var(--cream); }
+.action.primary { border-color: var(--accent); background: #4a2c25; color: var(--cream); }
+.action.danger { border-color: var(--red); color: #d59b8b; }
+.project-dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, .7); }
+.project-dialog-backdrop[hidden] { display: none; }
+.project-dialog { width: min(32rem, 100%); border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel-raised); box-shadow: 0 18px 48px var(--shadow); }
+.project-dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.project-dialog-title { margin: 0; color: var(--cream); font-size: 15px; font-weight: 600; }
+.project-dialog-close { padding: 2px 7px; }
+.project-dialog-body { display: grid; gap: 13px; padding: 16px 18px; }
+.project-dialog-field { display: grid; gap: 6px; color: var(--muted); font-size: 11px; }
+.project-dialog-field input, .project-dialog-field textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: 3px; padding: 8px 9px; color: var(--cream); background: var(--panel); }
+.project-dialog-field textarea { min-height: 76px; resize: vertical; font-size: 14px; }
+.project-dialog-field input:focus, .project-dialog-field textarea:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
+.project-dialog-check { display: flex; align-items: flex-start; gap: 9px; color: var(--text); font-size: 12px; }
+.project-dialog-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.project-dialog-help { color: var(--faint); font-size: 10px; }
+.project-dialog-error { min-height: 1.2em; color: #d59b8b; font-size: 11px; }
+.project-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+.sidebar-collapsed .workspace { grid-template-columns: 56px minmax(0, 1fr); }
+.sidebar-collapsed .sidebar { padding: 12px 8px; gap: 0; }
+.sidebar-collapsed .sidebar-heading { justify-content: center; }
+.sidebar-collapsed .sidebar-heading > span,
+.sidebar-collapsed .sidebar-heading #refresh,
+.sidebar-collapsed .sidebar > :not(.sidebar-heading) { display: none; }
+@media (max-width: 760px) {
+  .topbar { padding: 0 15px; }
+  .workspace { display: flex; flex-direction: column; min-height: 0; }
+  .sidebar { position: fixed; inset: var(--topbar-height) auto 0 0; z-index: 30; width: min(88vw, 340px); height: calc(100dvh - var(--topbar-height)); border-right: 1px solid var(--line); border-bottom: 0; padding: 18px 15px 16px; background: #141010; box-shadow: 14px 0 32px var(--shadow); transform: translateX(-105%); transition: transform .2s ease; }
+  .sidebar-open .sidebar { transform: translateX(0); }
+  .sidebar-collapsed .sidebar { padding: 18px 15px 16px; }
+  .sidebar-collapsed .sidebar-heading > span,
+  .sidebar-collapsed .sidebar-heading #refresh,
+  .sidebar-collapsed .sidebar > :not(.sidebar-heading) { display: flex; }
+  .sidebar-collapsed .sidebar-heading { justify-content: space-between; }
+  .sidebar-collapsed .sidebar .sidebar-foot { display: none; }
+  .sidebar-toggle { display: none; }
+  .mobile-sidebar-close { display: inline-flex; }
+  .mobile-sidebar-toggle, .mobile-sidebar-close, #refresh, .session-menu-trigger, .project-menu-trigger, .composer-actions button { min-width: 44px; min-height: 44px; }
+  .session-list { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+  .session-entry { min-width: 0; }
+  .sidebar-foot { display: none; }
+  .chat-header { padding: 15px 18px; }
+  /* Keep the mobile controls readable instead of squeezing every header item into one row. */
+  .chat-header { align-items: stretch; flex-direction: column; gap: 10px; }
+  .chat-header-leading { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; }
+  .chat-header-leading .mobile-sidebar-toggle { grid-column: 1; grid-row: 1; }
+  .chat-header-leading .chat-heading { grid-column: 2; grid-row: 1; }
+  .chat-header-leading .session-project-picker { grid-column: 1 / -1; grid-row: 2; width: 100%; display: flex; align-items: center; }
+  .chat-header-leading .session-project-picker .project-picker { flex: 1 1 auto; width: auto; min-width: 0; }
+  .chat-header > #session-details { width: 100%; padding-top: 2px; border-top: 1px solid var(--line); }
+  .chat-header > #session-details .session-id { margin-top: 5px; }
+  .mobile-sidebar-toggle { display: inline-flex; }
+  .chat-panel { flex: 1 1 auto; }
+  .messages { padding: 20px 14px; }
+  .empty-state { padding: 16px; }
+  .empty-state-copy { max-width: 28rem; }
+  .brand-avatar { width: 27px; height: 27px; }
+  .message-avatar { width: 28px; height: 28px; flex-basis: 28px; }
+  .message-content { max-width: calc(100% - 44px); }
+  .bubble { max-width: 100%; }
+  .composer-wrap { padding: 16px 14px; }
+  .composer-hint { display: none; }
+  textarea { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Bee home"><img class="brand-avatar" src="/assets/bee-mascot.svg?v=20260919-perf1" alt=""><span class="brand-mark">BEE</span></a>
+    <div class="topbar-actions"><button class="notification-button" id="notification-button" type="button" aria-expanded="false" aria-controls="notification-panel">Inbox <span class="notification-badge" id="notification-badge" hidden>0</span></button></div>
+  </header>
+  <main class="workspace">
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+    <aside class="sidebar scrollbar-hidden" id="sidebar" aria-label="Conversations">
+      <button class="new-session" id="new" type="button">+ New conversation</button>
+      <div class="project-controls" aria-label="Project filter">
+        <div class="project-picker" id="project-filter-picker">
+          <button class="project-filter" id="project-filter" type="button" aria-label="Filter conversations by project" aria-haspopup="listbox" aria-expanded="false" aria-controls="project-filter-menu">
+            <span class="project-filter-label" id="project-filter-label" data-picker-label>All projects</span><span class="project-filter-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="project-picker-menu" id="project-filter-menu" role="listbox" aria-label="Filter conversations by project" hidden></div>
+        </div>
+        <button class="action project-create" id="new-project" type="button" title="Create project">+ Project</button>
+      </div>
+      <form class="session-search" id="session-search-form" role="search">
+        <input id="session-search-input" type="search" maxlength="256" placeholder="Search conversations…" aria-label="Search conversations">
+        <button class="action" id="session-search-clear" type="button" aria-label="Clear conversation search" title="Clear search" hidden>×</button>
+      </form>
+      <div class="project-list scrollbar-hidden" id="project-list" aria-label="Projects"></div>
+      <div class="sidebar-heading"><span>Conversations</span><div class="actions"><button class="action" id="refresh" type="button" aria-label="Refresh conversations">↻</button><button class="action mobile-sidebar-close" id="mobile-sidebar-close" type="button" aria-label="Close conversations" title="Close conversations">×</button><button class="action sidebar-toggle" id="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar" aria-label="Collapse conversation sidebar" title="Collapse conversation sidebar">‹</button></div></div>
+      <nav class="session-list scrollbar-hidden" id="sessions" aria-label="Session list"></nav>
+      <div class="sidebar-foot">Messages stay on this machine.<br>Compact terminal interface for Bee.<br>Local: /status · /help · /subagents · /tasks</div>
+    </aside>
+    <section class="chat-panel" aria-label="Bee conversation">
+      <header class="chat-header">
+        <div class="chat-header-leading">
+          <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Open conversations" title="Open conversations">☰</button>
+          <div class="chat-heading">
+            <div class="chat-title" id="chat-title">Choose a conversation</div>
+            <div class="chat-meta" id="chat-meta">Create a new session to begin.</div>
+          </div>
+          <div class="session-project-picker" id="session-project-picker" hidden>
+            project
+            <div class="project-picker" id="session-project-picker-menu-wrap">
+              <button class="session-project-trigger" id="session-project" type="button" aria-label="Assign conversation to project" aria-haspopup="listbox" aria-expanded="false" aria-controls="session-project-menu">
+                <span class="session-project-label" id="session-project-label" data-picker-label>No project</span><span class="session-project-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="project-picker-menu" id="session-project-menu" role="listbox" aria-label="Assign conversation to project" hidden></div>
+            </div>
+          </div>
+        </div>
+        <details id="session-details" hidden>
+          <summary>session details</summary>
+          <div class="session-id" id="session-id"></div>
+        </details>
+      </header>
+      <div class="messages scrollbar-hidden" id="messages" role="log" aria-live="polite">
+        <div class="history-window-controls" id="history-window-controls" hidden>
+          <button id="load-earlier" type="button">Load earlier messages</button>
+        </div>
+        <div class="empty-state" id="empty-state"><div class="empty-state-copy"><div class="empty-kicker">Local assistant</div><h1>Start a conversation</h1><p>Choose a conversation or send a message to Bee.</p></div></div>
+      </div>
+      <div class="composer-wrap">
+        <form class="composer" id="composer-form">
+          <div class="composer-box">
+            <div class="attachment-chip-row" id="attachment-chips" aria-live="polite"></div>
+            <textarea id="prompt" rows="2" maxlength="65536" placeholder="Message Bee..." aria-label="Message Bee" data-autogrow="bounded" data-max-height="220"></textarea>
+            <div class="upload-progress" id="upload-progress" role="status"></div>
+            <div class="composer-actions">
+              <span class="composer-hint">Enter sends · Shift+Enter adds a line</span>
+              <div class="actions">
+                <input id="attachment-input" type="file" hidden multiple>
+                <button class="action" id="attach" type="button" title="Attach files">Attach</button>
+                <button class="action" id="continue-checkpoint" type="button" hidden>Continue</button>
+                <button class="action danger" id="cancel" type="button" disabled>Cancel</button>
+                <button class="action primary" id="send" type="submit">Send ↵</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+<section class="notification-panel" id="notification-panel" hidden aria-label="Job notifications">
+  <div class="notification-panel-header"><strong>Job notifications</strong><button class="action" id="notification-refresh" type="button">Refresh</button></div>
+  <div class="notification-list" id="notification-list" aria-live="polite"></div>
+  <button class="notification-load-older" id="notification-load-older" type="button" hidden>Load older</button>
+</section>
+<div class="project-dialog-backdrop" id="project-dialog-backdrop" hidden>
+  <section class="project-dialog" id="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" aria-describedby="project-dialog-body">
+    <div class="project-dialog-header">
+      <h2 class="project-dialog-title" id="project-dialog-title">Create project</h2>
+      <button class="action project-dialog-close" id="project-dialog-close" type="button" aria-label="Close create project dialog">×</button>
+    </div>
+    <form id="project-dialog-form">
+      <div class="project-dialog-body" id="project-dialog-body">
+        <div class="project-dialog-field">
+          <label for="project-dialog-name">Project name</label>
+          <input id="project-dialog-name" name="name" type="text" maxlength="120" autocomplete="off">
+        </div>
+        <div class="project-dialog-field">
+          <label for="project-dialog-description-input">Description <span class="project-dialog-help">(optional)</span></label>
+          <textarea id="project-dialog-description-input" name="description" maxlength="1000" rows="3"></textarea>
+        </div>
+        <label class="project-dialog-check" for="project-dialog-directory">
+          <input id="project-dialog-directory" name="create_directory" type="checkbox">
+          <span>Create a matching workspace directory?<span class="project-dialog-help"><br>Bee will create it under the configured projects root.</span></span>
+        </label>
+        <div class="project-dialog-error" id="project-dialog-error" role="alert" aria-live="polite"></div>
+      </div>
+      <div class="project-dialog-actions">
+        <button class="action" id="project-dialog-cancel" type="button">Cancel</button>
+        <button class="action primary" id="project-dialog-create" type="submit">Create project</button>
+      </div>
+    </form>
+  </section>
+</div>
+<div class="rename-dialog-backdrop" id="rename-dialog-backdrop" hidden>
+  <section class="rename-dialog" id="rename-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-dialog-title" aria-describedby="rename-dialog-body">
+    <div class="rename-dialog-header">
+      <h2 class="rename-dialog-title" id="rename-dialog-title">Rename conversation</h2>
+      <button class="action project-dialog-close" id="rename-dialog-close" type="button" aria-label="Close rename conversation dialog">×</button>
+    </div>
+    <form id="rename-dialog-form">
+      <div class="rename-dialog-body" id="rename-dialog-body">
+        <label for="rename-dialog-input">Conversation title</label>
+        <input id="rename-dialog-input" name="title" type="text" maxlength="512" autocomplete="off">
+        <div class="rename-dialog-error" id="rename-dialog-error" role="alert" aria-live="polite"></div>
+      </div>
+      <div class="rename-dialog-actions">
+        <button class="action" id="rename-dialog-cancel" type="button">Cancel</button>
+        <button class="action primary" id="rename-dialog-save" type="submit">Save title</button>
+      </div>
+    </form>
+  </section>
+</div>
+<script>
+window.__BEE_UI_CONFIG__ = null;
+const appShell = document.querySelector('.app-shell');
+const sidebarToggle = document.querySelector('#sidebar-toggle');
+const mobileSidebarToggle = document.querySelector('#mobile-sidebar-toggle');
+const mobileSidebarClose = document.querySelector('#mobile-sidebar-close');
+const sidebarBackdrop = document.querySelector('#sidebar-backdrop');
+const sessions = document.querySelector('#sessions');
+const projectFilter = document.querySelector('#project-filter');
+const projectFilterMenu = document.querySelector('#project-filter-menu');
+const projectList = document.querySelector('#project-list');
+const newProjectButton = document.querySelector('#new-project');
+const sessionSearchForm = document.querySelector('#session-search-form');
+const sessionSearchInput = document.querySelector('#session-search-input');
+const sessionSearchClear = document.querySelector('#session-search-clear');
+const messages = document.querySelector('#messages');
+const emptyState = document.querySelector('#empty-state');
+const historyWindowControls = document.querySelector('#history-window-controls');
+const loadEarlier = document.querySelector('#load-earlier');
+const prompt = document.querySelector('#prompt');
+const cancel = document.querySelector('#cancel');
+const continueCheckpoint = document.querySelector('#continue-checkpoint');
+const sendButton = document.querySelector('#send');
+const composerForm = document.querySelector('#composer-form');
+const attachButton = document.querySelector('#attach');
+const attachmentInput = document.querySelector('#attachment-input');
+const attachmentChips = document.querySelector('#attachment-chips');
+const uploadProgress = document.querySelector('#upload-progress');
+const chatTitle = document.querySelector('#chat-title');
+const chatMeta = document.querySelector('#chat-meta');
+const sessionDetails = document.querySelector('#session-details');
+const sessionID = document.querySelector('#session-id');
+const sessionProjectPicker = document.querySelector('#session-project-picker');
+const sessionProject = document.querySelector('#session-project');
+const sessionProjectMenu = document.querySelector('#session-project-menu');
+const projectDialogBackdrop = document.querySelector('#project-dialog-backdrop');
+const projectDialog = document.querySelector('#project-dialog');
+const projectDialogForm = document.querySelector('#project-dialog-form');
+const projectDialogName = document.querySelector('#project-dialog-name');
+const projectDialogDescription = document.querySelector('#project-dialog-description-input');
+const projectDialogDirectory = document.querySelector('#project-dialog-directory');
+const projectDialogError = document.querySelector('#project-dialog-error');
+const projectDialogClose = document.querySelector('#project-dialog-close');
+const projectDialogCancel = document.querySelector('#project-dialog-cancel');
+const projectDialogCreate = document.querySelector('#project-dialog-create');
+const renameDialogBackdrop = document.querySelector('#rename-dialog-backdrop');
+const renameDialog = document.querySelector('#rename-dialog');
+const renameDialogForm = document.querySelector('#rename-dialog-form');
+const renameDialogInput = document.querySelector('#rename-dialog-input');
+const renameDialogError = document.querySelector('#rename-dialog-error');
+const renameDialogClose = document.querySelector('#rename-dialog-close');
+const renameDialogCancel = document.querySelector('#rename-dialog-cancel');
+const renameDialogSave = document.querySelector('#rename-dialog-save');
+const notificationButton = document.querySelector('#notification-button');
+const notificationBadge = document.querySelector('#notification-badge');
+const notificationPanel = document.querySelector('#notification-panel');
+const notificationList = document.querySelector('#notification-list');
+const notificationRefresh = document.querySelector('#notification-refresh');
+const notificationLoadOlder = document.querySelector('#notification-load-older');
+const state = { selectedID: '', session: null, homeMode: true, runID: '', sending: false, composing: false, cancelRequested: false, terminalErrorShown: false, projects: [], activeProjectID: '', searchQuery: '', searchGeneration: 0, refreshGeneration: 0, renameTarget: null, attachments: [], historyBefore: '', historyHasMore: false, historyLoading: false, assistantFrame: 0, assistantPending: '', checkpoint: null, continueCheckpointID: '' };
+const uiConfig = window.__BEE_UI_CONFIG__ || {};
+const defaultBeeAvatar = '/assets/bee-mascot.svg?v=20260919-perf1';
+const perfMark = (name) => { try { if (window.performance && typeof window.performance.mark === 'function') { window.performance.mark(name); } } catch (_) {} };
+const perfMeasure = (name, start, end) => { try { if (window.performance && typeof window.performance.measure === 'function') { window.performance.measure(name, start, end); window.setTimeout(() => { try { window.performance.clearMarks(start); window.performance.clearMarks(end); window.performance.clearMeasures(name); } catch (_) {} }, 1000); } } catch (_) {} };
+const sidebarStorageKey = 'bee.gateway.sidebarCollapsed';
+const streamReconnectBaseDelay = 250;
+const streamReconnectMaxDelay = 8000;
+const streamInactivityWatchdog = 45000;
+const maxArtifactPlaybackStates = 32;
+const promptMinHeight = 54;
+const promptMaxHeight = 220;
+const attachmentOnlyPrompt = 'Please inspect the attached files.';
+let assistantBubble = null;
+let assistantText = '';
+let assistantTimestamp = '';
+let assistantTimestampFromEvent = false;
+let openProjectMenu = null;
+let openPicker = null;
+let projectDialogReturnFocus = null;
+let renameDialogReturnFocus = null;
+let notificationStream = null;
+let notificationRefreshInFlight = null;
+let notificationNextBefore = 0;
+const artifactPreviewObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries, observer) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    observer.unobserve(entry.target);
+    const preview = entry.target;
+    const url = preview.dataset.previewUrl;
+    if (!url) continue;
+    delete preview.dataset.previewUrl;
+    fetch(url).then(async (response) => {
+      if (!response.ok) throw new Error('preview unavailable');
+      preview.textContent = await response.text();
+      if (response.headers.get('X-Bee-Artifact-Truncated') === 'true') preview.textContent += '\n… preview truncated';
+    }).catch(() => { preview.hidden = true; });
+  }
+}) : null;
+function lazyArtifactPreview(preview, artifactID) {
+  preview.dataset.previewUrl = '/api/artifacts/' + encodeURIComponent(artifactID) + '/preview';
+  if (artifactPreviewObserver) artifactPreviewObserver.observe(preview);
+  else {
+    const url = preview.dataset.previewUrl;
+    delete preview.dataset.previewUrl;
+    fetch(url).then(async (response) => { if (!response.ok) throw new Error('preview unavailable'); preview.textContent = await response.text(); }).catch(() => { preview.hidden = true; });
+  }
+}
+
+function resizePrompt() {
+  prompt.style.height = 'auto';
+  const contentHeight = Math.max(prompt.scrollHeight, promptMinHeight);
+  const nextHeight = Math.min(contentHeight, promptMaxHeight);
+  prompt.style.height = nextHeight + 'px';
+  prompt.dataset.overflowing = String(contentHeight > promptMaxHeight);
+}
+
+function isNarrowScreen() { return window.matchMedia('(max-width: 760px)').matches; }
+function setSidebarCollapsed(collapsed, persist = true) {
+  const effectiveCollapsed = Boolean(collapsed) && !isNarrowScreen();
+  appShell.classList.toggle('sidebar-collapsed', effectiveCollapsed);
+  sidebarToggle.setAttribute('aria-expanded', String(!effectiveCollapsed));
+  const label = effectiveCollapsed ? 'Expand conversation sidebar' : 'Collapse conversation sidebar';
+  sidebarToggle.setAttribute('aria-label', label);
+  sidebarToggle.setAttribute('title', label);
+  sidebarToggle.textContent = effectiveCollapsed ? '›' : '‹';
+  if (persist) {
+    try { window.localStorage.setItem(sidebarStorageKey, String(collapsed)); } catch (_) { /* storage may be unavailable */ }
+  }
+}
+
+function setMobileSidebarOpen(open, returnFocus = false) {
+  const shouldOpen = Boolean(open) && isNarrowScreen();
+  appShell.classList.toggle('sidebar-open', shouldOpen);
+  sidebarBackdrop.hidden = !shouldOpen;
+  mobileSidebarToggle.setAttribute('aria-expanded', String(shouldOpen));
+  mobileSidebarToggle.setAttribute('aria-label', shouldOpen ? 'Close conversations' : 'Open conversations');
+  mobileSidebarToggle.setAttribute('title', shouldOpen ? 'Close conversations' : 'Open conversations');
+  if (shouldOpen) window.requestAnimationFrame(() => mobileSidebarClose.focus());
+  else { closeSessionMenus(); closeProjectMenus(); closeProjectPickers(); }
+  if (returnFocus) mobileSidebarToggle.focus();
+}
+
+function closeMobileSidebar(returnFocus = false) { setMobileSidebarOpen(false, returnFocus); }
+
+function storedSidebarCollapsed() {
+  try { return window.localStorage.getItem(sidebarStorageKey) === 'true'; } catch (_) { return false; }
+}
+
+function setStatus(text, tone = '') {
+  chatMeta.textContent = text;
+  chatMeta.className = 'chat-meta' + (tone ? ' ' + tone : '');
+}
+function titleFor(session) { return session && session.title ? session.title : 'New conversation'; }
+function projectFor(id) { return state.projects.find((project) => project.id === id) || null; }
+function projectLabel(project) { return project.name + (project.completed ? ' · completed' : ''); }
+function pickerItems(menu) { return Array.from(menu.querySelectorAll('[role="option"]')).filter((item) => !item.disabled && !item.hidden); }
+function setPickerValue(trigger, value, label) {
+  trigger.dataset.value = value || '';
+  const labelNode = trigger.querySelector('[data-picker-label]');
+  if (labelNode) labelNode.textContent = label || '';
+  const menu = document.getElementById(trigger.getAttribute('aria-controls'));
+  if (menu) menu.querySelectorAll('[role="option"]').forEach((item) => item.setAttribute('aria-selected', String((item.dataset.value || '') === (value || ''))));
+}
+function closeProjectPickers(returnFocus = false) {
+  const current = openPicker;
+  openPicker = null;
+  if (!current) return;
+  current.menu.hidden = true;
+  current.trigger.setAttribute('aria-expanded', 'false');
+  if (returnFocus && current.trigger.isConnected) current.trigger.focus();
+}
+function openProjectPicker(trigger, menu, focusIndex = -1) {
+  const isOpen = openPicker && openPicker.trigger === trigger && !menu.hidden;
+  closeSessionMenus();
+  closeProjectMenus();
+  closeProjectPickers();
+  if (isOpen) return;
+  menu.hidden = false;
+  trigger.setAttribute('aria-expanded', 'true');
+  openPicker = { trigger, menu };
+  if (focusIndex >= 0) pickerItems(menu)[focusIndex]?.focus();
+}
+function movePickerFocus(menu, event) {
+  const items = pickerItems(menu);
+  if (!items.length) return;
+  event.preventDefault();
+  const currentIndex = items.indexOf(document.activeElement);
+  const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (currentIndex + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+  items[nextIndex].focus();
+}
+function renderProjectPicker(trigger, menu, options, value, onSelect) {
+  menu.replaceChildren();
+  for (const option of options) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'project-picker-option';
+    item.setAttribute('role', 'option');
+    item.dataset.value = option.value;
+    item.textContent = option.label;
+    item.setAttribute('aria-selected', String(option.value === value));
+    item.tabIndex = option.value === value ? 0 : -1;
+    item.addEventListener('click', () => {
+      setPickerValue(trigger, option.value, option.label);
+      closeProjectPickers(true);
+      onSelect(option.value);
+    });
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeProjectPickers(true);
+      } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        movePickerFocus(menu, event);
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        item.click();
+      }
+    });
+    menu.appendChild(item);
+  }
+  setPickerValue(trigger, value, options.find((option) => option.value === value)?.label || '');
+}
+function wireProjectPicker(trigger, menu) {
+  trigger.addEventListener('click', (event) => { event.stopPropagation(); openProjectPicker(trigger, menu); });
+  trigger.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeProjectPickers(true);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      const items = pickerItems(menu);
+      const selectedIndex = Math.max(0, items.findIndex((item) => item.getAttribute('aria-selected') === 'true'));
+      openProjectPicker(trigger, menu, event.key === 'ArrowDown' ? selectedIndex : -1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      const items = pickerItems(menu);
+      openProjectPicker(trigger, menu, items.length - 1);
+    }
+  });
+}
+function timeFor(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function setActiveSession(session) {
+  state.session = session || null;
+  state.selectedID = session ? session.id : '';
+  chatTitle.textContent = session ? titleFor(session) : 'Choose a conversation';
+  sessionDetails.hidden = !session;
+  sessionProjectPicker.hidden = !session;
+  sessionID.textContent = session ? session.id : '';
+  if (session) setPickerValue(sessionProject, session.project_id || '', projectFor(session.project_id)?.name || 'No project');
+  setStatus(session ? 'Ready for a new turn.' : 'Create a new session to begin.');
+  document.querySelectorAll('.session-entry').forEach((entry) => entry.classList.toggle('active', entry.dataset.id === state.selectedID));
+}
+function enterHomeMode() {
+  if (state.sending) {
+    setStatus('Finish or cancel the active run before returning home.', 'error');
+    return;
+  }
+  state.homeMode = true;
+  state.attachments = [];
+  state.checkpoint = null;
+  state.continueCheckpointID = '';
+  continueCheckpoint.hidden = true;
+  renderAttachmentChips();
+  uploadProgress.textContent = '';
+  setActiveSession(null);
+  clearConversation();
+  setStatus('Create a new session to begin.');
+  closeMobileSidebar();
+  refresh();
+}
+function setSearchMode(query) {
+  state.searchQuery = query.trim();
+  sessionSearchInput.value = state.searchQuery;
+  sessionSearchClear.hidden = !state.searchQuery;
+}
+function clearSearch() {
+  setSearchMode('');
+  refresh();
+  sessionSearchInput.focus();
+}
+function closeSessionMenus(returnFocus = false) {
+  document.querySelectorAll('.session-menu-wrap').forEach((wrap) => {
+    const trigger = wrap.querySelector('.session-menu-trigger');
+    const menu = wrap.querySelector('.session-menu');
+    if (!trigger || !menu || menu.hidden) return;
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (returnFocus) trigger.focus();
+  });
+}
+function toggleSessionMenu(trigger, menu) {
+  const open = !menu.hidden;
+  closeSessionMenus();
+  closeProjectMenus();
+  closeProjectPickers();
+  if (open) return;
+  menu.hidden = false;
+  trigger.setAttribute('aria-expanded', 'true');
+}
+function projectMenuItems(menu) {
+  return Array.from(menu.querySelectorAll('[role="menuitem"]')).filter((item) => !item.disabled && !item.hidden);
+}
+function positionProjectMenu(trigger = openProjectMenu?.trigger, menu = openProjectMenu?.menu) {
+  if (!trigger || !menu || menu.hidden || !trigger.isConnected) return;
+  const viewport = window.visualViewport;
+  const viewportWidth = viewport ? viewport.width : window.innerWidth;
+  const viewportHeight = viewport ? viewport.height : window.innerHeight;
+  const padding = 8;
+  const gap = 4;
+  const triggerRect = trigger.getBoundingClientRect();
+  menu.style.visibility = 'hidden';
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+  const menuRect = menu.getBoundingClientRect();
+  const menuWidth = Math.min(menuRect.width, Math.max(0, viewportWidth - (padding * 2)));
+  const menuHeight = Math.min(menuRect.height, Math.max(0, viewportHeight - (padding * 2)));
+  const left = Math.max(padding, Math.min(triggerRect.right - menuWidth, viewportWidth - menuWidth - padding));
+  const spaceBelow = viewportHeight - triggerRect.bottom - gap - padding;
+  const spaceAbove = triggerRect.top - gap - padding;
+  let top = triggerRect.bottom + gap;
+  let placement = 'below';
+  if (menuHeight > spaceBelow && spaceAbove >= menuHeight) {
+    top = triggerRect.top - menuHeight - gap;
+    placement = 'above';
+  } else if (menuHeight > spaceBelow) {
+    top = Math.max(padding, viewportHeight - menuHeight - padding);
+    placement = 'clamped';
+  }
+  menu.dataset.placement = placement;
+  menu.style.left = Math.round(left) + 'px';
+  menu.style.top = Math.round(top) + 'px';
+  menu.style.visibility = 'visible';
+}
+function closeProjectMenus(returnFocus = false) {
+  const current = openProjectMenu;
+  openProjectMenu = null;
+  if (!current) return;
+  current.menu.hidden = true;
+  current.menu.remove();
+  current.trigger.setAttribute('aria-expanded', 'false');
+  if (returnFocus && current.trigger.isConnected) current.trigger.focus();
+}
+function toggleProjectMenu(trigger, menu) {
+  const open = openProjectMenu && openProjectMenu.trigger === trigger && !menu.hidden;
+  closeSessionMenus();
+  closeProjectMenus();
+  closeProjectPickers();
+  if (open) return;
+  menu.dataset.projectMenu = 'true';
+  menu.classList.add('project-menu-portal');
+  document.body.appendChild(menu);
+  menu.hidden = false;
+  trigger.setAttribute('aria-expanded', 'true');
+  openProjectMenu = { trigger, menu };
+  positionProjectMenu(trigger, menu);
+}
+function clearConversation() {
+  flushAssistantDelta();
+  if (state.assistantFrame) cancelAnimationFrame(state.assistantFrame);
+  state.assistantFrame = 0;
+  state.assistantPending = '';
+  messages.classList.remove('live-streaming');
+  messages.replaceChildren(historyWindowControls, emptyState);
+  historyWindowControls.hidden = true;
+  loadEarlier.disabled = false;
+  emptyState.hidden = false;
+  assistantBubble = null;
+  assistantText = '';
+  assistantTimestamp = '';
+  assistantTimestampFromEvent = false;
+}
+function appendInlineMarkdown(parent, text) {
+  const pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|\[[^\]\n]+\]\((?:https?:\/\/)[^)\s]+\))/g;
+  let cursor = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > cursor) parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+    const token = match[0];
+    if (token[0] === '`') {
+      const code = document.createElement('code');
+      code.textContent = token.slice(1, -1);
+      parent.appendChild(code);
+    } else if (token.startsWith('**') || token.startsWith('__')) {
+      const strong = document.createElement('strong');
+      strong.textContent = token.slice(2, -2);
+      parent.appendChild(strong);
+    } else if (token[0] === '*' || token[0] === '_') {
+      const emphasis = document.createElement('em');
+      emphasis.textContent = token.slice(1, -1);
+      parent.appendChild(emphasis);
+    } else {
+      const linkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/i);
+      if (!linkMatch) {
+        parent.appendChild(document.createTextNode(token));
+      } else {
+        const link = document.createElement('a');
+        link.href = linkMatch[2];
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = linkMatch[1];
+        parent.appendChild(link);
+      }
+    }
+    cursor = match.index + token.length;
+  }
+  if (cursor < text.length) parent.appendChild(document.createTextNode(text.slice(cursor)));
+}
+const MAX_HIGHLIGHT_CHARS = 120000;
+const CODE_LANGUAGE_ALIASES = Object.freeze({
+  '': 'plain', code: 'plain', text: 'plain', plaintext: 'plain', plain: 'plain',
+  sh: 'shell', bash: 'shell', shell: 'shell', zsh: 'shell',
+  js: 'javascript', jsx: 'javascript', javascript: 'javascript',
+  ts: 'typescript', tsx: 'typescript', typescript: 'typescript',
+  py: 'python', python: 'python',
+  go: 'go', golang: 'go',
+  c: 'c', h: 'c', cpp: 'cpp', 'c++': 'cpp', cc: 'cpp', hpp: 'cpp',
+  el: 'emacs-lisp', elisp: 'emacs-lisp', 'emacs-lisp': 'emacs-lisp', 'emacs lisp': 'emacs-lisp', emacs: 'emacs-lisp',
+  lisp: 'common-lisp', 'common-lisp': 'common-lisp', commonlisp: 'common-lisp', cl: 'common-lisp',
+  json: 'json', jsonc: 'json',
+  yml: 'yaml', yaml: 'yaml',
+});
+const CODE_LANGUAGE_KEYWORDS = Object.freeze({
+  go: new Set('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var'.split(' ')),
+  c: new Set('auto break case char const continue default do double else enum extern float for goto if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while'.split(' ')),
+  cpp: new Set('alignas alignof asm auto bool break case catch char class const constexpr continue default delete do double else enum explicit export extern false float for friend if inline int long namespace new nullptr operator private protected public register return short signed sizeof static struct switch template this throw true try typedef typename union unsigned using virtual void volatile while'.split(' ')),
+  javascript: new Set('as async await break case catch class const continue debugger default delete do else export extends finally for from function get if implements import in instanceof let new null of return set static super switch this throw try typeof undefined var void while with yield'.split(' ')),
+  typescript: new Set('as async await break case catch class const continue debugger declare default delete do else enum export extends finally for from function get if implements import in infer instanceof interface keyof let namespace never new null of private protected public readonly return set static super switch this throw try type typeof undefined var void while with yield'.split(' ')),
+  python: new Set('and as assert async await break case class continue def del elif else except finally for from global if import in is lambda match nonlocal not or pass raise return try while with yield'.split(' ')),
+  shell: new Set('case do done elif else esac fi for function if in select then time until while coproc'.split(' ')),
+  'emacs-lisp': new Set('and and-let* apply assert atom catch condition-case cond defconst defcustom defgroup defmacro defmethod defsetf defsubst deftype defun defvar dolist dotimes error eval-after-load if interactive lambda let let* load mapcar or pcase prog1 progn require save-excursion save-restriction setq setq-default throw unwind-protect unless when while with-current-buffer with-temp-buffer with-temp-file with-temp-message with-timeout'.split(' ')),
+  'common-lisp': new Set('and block case catch ccases ccase cond declare defclass defconstant defgeneric defmacro defmethod defpackage defparameter defsetf defstruct deftype defun defvar do do* dolist dotimes eval-when flet function handler-bind handler-case if in-package labels lambda let let* loop macrolet multiple-value-bind multiple-value-call multiple-value-prog1 or prog prog1 progn restart-case return return-from setf symbol-macrolet tagbody the throw typecase typep unless when with-accessors with-open-file with-slots unwind-protect'.split(' ')),
+  json: new Set(),
+  yaml: new Set(),
+  plain: new Set(),
+});
+const CODE_LANGUAGE_LITERALS = new Set(['true', 'false', 'null', 'undefined', 'nil', 'none', 'yes', 'no', 'on', 'off']);
+const CODE_LANGUAGE_LITERALS_BY_LANGUAGE = Object.freeze({
+  'emacs-lisp': new Set(['nil', 't']),
+  'common-lisp': new Set(['nil', 't']),
+});
+const CODE_LANGUAGE_TYPES = new Set('bool byte bytearray char double error float int int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr any number object string void boolean unknown never'.split(' '));
+const CODE_LANGUAGE_TYPES_BY_LANGUAGE = Object.freeze({
+  'emacs-lisp': new Set('array atom boolean buffer byte character char cons float function integer keymap list marker number sequence string symbol t vector'.split(' ')),
+  'common-lisp': new Set('array atom bit boolean character class condition cons declaration double-float environment fixnum float function hash-table integer keyword list long-float null number package pathname ratio rational readtable sequence short-float simple-array simple-string single-float stream string symbol t unsigned-byte vector'.split(' ')),
+});
+const LINE_COMMENT_LANGUAGES = new Set(['go', 'c', 'cpp', 'javascript', 'typescript']);
+const HASH_COMMENT_LANGUAGES = new Set(['python', 'shell', 'yaml']);
+const BLOCK_COMMENT_LANGUAGES = new Set(['go', 'c', 'cpp', 'javascript', 'typescript']);
+const LISP_LANGUAGES = new Set(['emacs-lisp', 'common-lisp']);
+function normalizeCodeLanguage(rawLanguage) {
+  const raw = String(rawLanguage || '').trim().toLowerCase().replace(/^language-/, '');
+  return Object.prototype.hasOwnProperty.call(CODE_LANGUAGE_ALIASES, raw) ? CODE_LANGUAGE_ALIASES[raw] : 'plain';
+}
+function appendCodeToken(parent, className, text) {
+  if (!text) return;
+  if (!className) {
+    parent.appendChild(document.createTextNode(text));
+    return;
+  }
+  const token = document.createElement('span');
+  token.className = className;
+  token.textContent = text;
+  parent.appendChild(token);
+}
+function scanQuotedCode(source, start, quote) {
+  let index = start + 1;
+  while (index < source.length) {
+    if (source[index] === '\\') { index += 2; continue; }
+    if (source[index] === quote) return index + 1;
+    index += 1;
+  }
+  return source.length;
+}
+function scanBlockComment(source, start) {
+  const end = source.indexOf('*/', start + 2);
+  return end < 0 ? source.length : end + 2;
+}
+function scanLispBlockComment(source, start) {
+  let depth = 1;
+  let index = start + 2;
+  while (index < source.length && depth > 0) {
+    if (source.startsWith('#|', index)) { depth += 1; index += 2; continue; }
+    if (source.startsWith('|#', index)) { depth -= 1; index += 2; continue; }
+    index += 1;
+  }
+  return index;
+}
+function appendHighlightedCode(parent, source, rawLanguage) {
+  const language = normalizeCodeLanguage(rawLanguage);
+  if (!source || source.length > MAX_HIGHLIGHT_CHARS || language === 'plain') {
+    parent.textContent = source;
+    return;
+  }
+  const keywords = CODE_LANGUAGE_KEYWORDS[language] || CODE_LANGUAGE_KEYWORDS.plain;
+  let index = 0;
+  while (index < source.length) {
+    const rest = source.slice(index);
+    const current = source[index];
+    if (/\s/.test(current)) {
+      const match = rest.match(/^\s+/);
+      appendCodeToken(parent, '', match[0]);
+      index += match[0].length;
+      continue;
+    }
+    if (BLOCK_COMMENT_LANGUAGES.has(language) && source.startsWith('/*', index)) {
+      const end = scanBlockComment(source, index);
+      appendCodeToken(parent, 'syntax-comment', source.slice(index, end));
+      index = end;
+      continue;
+    }
+    if (LINE_COMMENT_LANGUAGES.has(language) && source.startsWith('//', index)) {
+      const end = source.indexOf('\n', index);
+      const next = end < 0 ? source.length : end;
+      appendCodeToken(parent, 'syntax-comment', source.slice(index, next));
+      index = next;
+      continue;
+    }
+    if (HASH_COMMENT_LANGUAGES.has(language) && current === '#') {
+      const end = source.indexOf('\n', index);
+      const next = end < 0 ? source.length : end;
+      appendCodeToken(parent, 'syntax-comment', source.slice(index, next));
+      index = next;
+      continue;
+    }
+    if (LISP_LANGUAGES.has(language) && source.startsWith('#|', index)) {
+      const end = scanLispBlockComment(source, index);
+      appendCodeToken(parent, 'syntax-comment', source.slice(index, end));
+      index = end;
+      continue;
+    }
+    if (LISP_LANGUAGES.has(language) && current === ';') {
+      const end = source.indexOf('\n', index);
+      const next = end < 0 ? source.length : end;
+      appendCodeToken(parent, 'syntax-comment', source.slice(index, next));
+      index = next;
+      continue;
+    }
+    if (current === '"' || (!LISP_LANGUAGES.has(language) && current === "'") || (current === '`' && (language === 'javascript' || language === 'typescript' || language === 'go'))) {
+      const end = scanQuotedCode(source, index, current);
+      appendCodeToken(parent, 'syntax-string', source.slice(index, end));
+      index = end;
+      continue;
+    }
+    const number = rest.match(/^(?:0[xX][\da-fA-F]+|0[bB][01]+|(?:\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(?:[eE][+-]?[\d_]+)?)/);
+    if (number) {
+      appendCodeToken(parent, 'syntax-number', number[0]);
+      index += number[0].length;
+      continue;
+    }
+    const identifier = LISP_LANGUAGES.has(language)
+      ? rest.match(/^(?::[A-Za-z0-9_+\-*/!?%<>=.$]+|[A-Za-z_!?%<>=][A-Za-z0-9_+\-*/!?%<>=.$]*|[+*/-][A-Za-z0-9_+\-*/!?%<>=.$]+)/)
+      : rest.match(/^[A-Za-z_$][\w$-]*/);
+    if (identifier) {
+      const word = identifier[0];
+      if (LISP_LANGUAGES.has(language) && word.length === 1 && /[+*/-]/.test(word)) {
+        appendCodeToken(parent, 'syntax-operator', word);
+        index += word.length;
+        continue;
+      }
+      let className = '';
+      let lookahead = index + word.length;
+      while (lookahead < source.length && /\s/.test(source[lookahead])) lookahead += 1;
+      const languageLiterals = CODE_LANGUAGE_LITERALS_BY_LANGUAGE[language];
+      const languageTypes = CODE_LANGUAGE_TYPES_BY_LANGUAGE[language];
+      if ((language === 'json' || language === 'yaml' || language === 'javascript' || language === 'typescript') && source[lookahead] === ':') className = 'syntax-property';
+      else if (LISP_LANGUAGES.has(language) && word[0] === ':') className = 'syntax-property';
+      else if (keywords.has(word)) className = 'syntax-keyword';
+      else if ((languageLiterals && languageLiterals.has(word)) || CODE_LANGUAGE_LITERALS.has(word)) className = 'syntax-literal';
+      else if ((languageTypes && languageTypes.has(word)) || CODE_LANGUAGE_TYPES.has(word)) className = 'syntax-type';
+      appendCodeToken(parent, className, word);
+      index += word.length;
+      continue;
+    }
+    if (/[+\-*\/%=<>!&|^~?:]/.test(current)) {
+      appendCodeToken(parent, 'syntax-operator', current);
+      index += 1;
+      continue;
+    }
+    appendCodeToken(parent, '', current);
+    index += 1;
+  }
+}
+const MAX_MARKDOWN_TABLE_COLUMNS = 32;
+const MAX_MARKDOWN_TABLE_ROWS = 128;
+const MAX_MARKDOWN_TABLE_CELL_CHARS = 4096;
+const MAX_MARKDOWN_TABLE_CHARS = 65536;
+function markdownBacktickRun(source, index) {
+  if (source[index] !== '`') return 0;
+  let escapes = 0;
+  for (let lookbehind = index - 1; lookbehind >= 0 && source[lookbehind] === '\\'; lookbehind -= 1) escapes += 1;
+  if (escapes % 2 === 1) return 0;
+  let run = 1;
+  while (index + run < source.length && source[index + run] === '`') run += 1;
+  return run;
+}
+function scanMarkdownTableRow(line) {
+  const source = String(line || '');
+  if (source.length > MAX_MARKDOWN_TABLE_CHARS) return { cells: [], hasPipe: false, overflow: true };
+  const cells = [];
+  let cell = '';
+  let codeTicks = 0;
+  let hasPipe = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const current = source[index];
+    const run = markdownBacktickRun(source, index);
+    if (run) {
+      if (!codeTicks) codeTicks = run;
+      else if (codeTicks === run) codeTicks = 0;
+      cell += source.slice(index, index + run);
+      index += run - 1;
+      continue;
+    }
+    if (current === '|' && !codeTicks) {
+      let backslashes = 0;
+      for (let lookbehind = index - 1; lookbehind >= 0 && source[lookbehind] === '\\'; lookbehind -= 1) backslashes += 1;
+      if (backslashes % 2 === 1) {
+        cell += current;
+        continue;
+      }
+      hasPipe = true;
+      cells.push(cell.trim());
+      if (cells.length > MAX_MARKDOWN_TABLE_COLUMNS) return { cells: [], hasPipe: true, overflow: true };
+      cell = '';
+      continue;
+    }
+    cell += current;
+    if (cell.length > MAX_MARKDOWN_TABLE_CELL_CHARS) return { cells: [], hasPipe, overflow: true };
+  }
+  cells.push(cell.trim());
+  const trimmed = source.trim();
+  if (trimmed.startsWith('|') && cells[0] === '') cells.shift();
+  if (trimmed.endsWith('|') && cells.length && cells[cells.length - 1] === '') cells.pop();
+  return { cells, hasPipe };
+}
+function splitMarkdownTableRow(line) {
+  const scanned = scanMarkdownTableRow(line);
+  return scanned.hasPipe && !scanned.overflow ? scanned.cells : null;
+}
+function unescapeMarkdownTablePipes(text) {
+  const source = String(text || '');
+  let result = '';
+  let codeTicks = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const current = source[index];
+    const run = markdownBacktickRun(source, index);
+    if (run) {
+      if (!codeTicks) codeTicks = run;
+      else if (codeTicks === run) codeTicks = 0;
+      result += source.slice(index, index + run);
+      index += run - 1;
+      continue;
+    }
+    if (current === '\\' && !codeTicks) {
+      let run = 1;
+      while (index + run < source.length && source[index + run] === '\\') run += 1;
+      if (source[index + run] === '|' && run % 2 === 1) {
+        result += '\\'.repeat(Math.floor(run / 2)) + '|';
+        index += run;
+        continue;
+      }
+      result += source.slice(index, index + run);
+      index += run - 1;
+      continue;
+    }
+    result += current;
+  }
+  return result;
+}
+function appendMarkdownTableCell(parent, text) {
+  const source = String(text || '');
+  let cursor = 0;
+  let index = 0;
+  while (index < source.length) {
+    const openingRun = markdownBacktickRun(source, index);
+    if (!openingRun) { index += 1; continue; }
+    let closing = index + openingRun;
+    while (closing < source.length) {
+      const closingRun = markdownBacktickRun(source, closing);
+      if (closingRun === openingRun) break;
+      closing += Math.max(1, closingRun);
+    }
+    if (closing >= source.length) break;
+    if (index > cursor) appendInlineMarkdown(parent, unescapeMarkdownTablePipes(source.slice(cursor, index)));
+    const code = document.createElement('code');
+    code.textContent = source.slice(index + openingRun, closing);
+    parent.appendChild(code);
+    index = closing + openingRun;
+    cursor = index;
+  }
+  if (cursor < source.length) appendInlineMarkdown(parent, unescapeMarkdownTablePipes(source.slice(cursor)));
+}
+function parseMarkdownTableDelimiter(cells) {
+  if (!cells || cells.length < 2) return null;
+  const alignments = [];
+  for (const cell of cells) {
+    const marker = String(cell || '').trim();
+    if (!/^:?-{3,}:?$/.test(marker)) return null;
+    const left = marker.startsWith(':');
+    const right = marker.endsWith(':');
+    alignments.push(left && right ? 'center' : right ? 'right' : 'left');
+  }
+  return alignments;
+}
+function markdownTableBoundary(line) {
+  return /^\s*(?:```|#{1,6}\s+|>\s?|(?:[-*+]\s+|\d+[.)]\s+)|(?:\*\s*\*\s*\*|-{3,}|_{3,})\s*$)/.test(line);
+}
+function parseMarkdownTable(lines, start) {
+  if (start < 0 || start + 1 >= lines.length) return null;
+  const header = splitMarkdownTableRow(lines[start]);
+  const delimiter = splitMarkdownTableRow(lines[start + 1]);
+  if (!header || !delimiter || header.length < 2 || header.length > MAX_MARKDOWN_TABLE_COLUMNS || delimiter.length !== header.length) return null;
+  const alignments = parseMarkdownTableDelimiter(delimiter);
+  if (!alignments) return null;
+  let totalChars = String(lines[start] || '').length + String(lines[start + 1] || '').length;
+  const checkCells = (cells) => {
+    if (!cells || cells.length !== header.length || cells.length > MAX_MARKDOWN_TABLE_COLUMNS) return false;
+    for (const cell of cells) {
+      if (cell.length > MAX_MARKDOWN_TABLE_CELL_CHARS) return false;
+      totalChars += cell.length;
+      if (totalChars > MAX_MARKDOWN_TABLE_CHARS) return false;
+    }
+    return true;
+  };
+  if (!checkCells(header) || !checkCells(delimiter)) return null;
+  const rows = [];
+  let index = start + 2;
+  while (index < lines.length && lines[index].trim()) {
+    const scanned = scanMarkdownTableRow(lines[index]);
+    if (scanned.overflow) return null;
+    if (!scanned.hasPipe) {
+      if (markdownTableBoundary(lines[index])) break;
+      break;
+    }
+    if (!checkCells(scanned.cells)) return null;
+    if (rows.length >= MAX_MARKDOWN_TABLE_ROWS) return null;
+    totalChars += String(lines[index] || '').length;
+    if (totalChars > MAX_MARKDOWN_TABLE_CHARS) return null;
+    rows.push(scanned.cells);
+    index += 1;
+  }
+  return { header, alignments, rows, end: index };
+}
+function renderMarkdownTable(container, parsed) {
+  const frame = document.createElement('div');
+  frame.className = 'markdown-table-frame';
+  const hint = document.createElement('span');
+  hint.className = 'markdown-table-scroll-hint';
+  hint.textContent = '↔ scroll';
+  hint.hidden = true;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'markdown-table-wrapper';
+  wrapper.setAttribute('role', 'region');
+  wrapper.setAttribute('tabindex', '0');
+  wrapper.setAttribute('aria-label', 'Scrollable Markdown table');
+  const table = document.createElement('table');
+  table.className = 'markdown-table';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  parsed.header.forEach((cellText, columnIndex) => {
+    const cell = document.createElement('th');
+    cell.scope = 'col';
+    cell.className = 'markdown-table-align-' + parsed.alignments[columnIndex];
+    appendMarkdownTableCell(cell, cellText);
+    headerRow.appendChild(cell);
+  });
+  thead.appendChild(headerRow);
+  const tbody = document.createElement('tbody');
+  parsed.rows.forEach((row) => {
+    const tableRow = document.createElement('tr');
+    row.forEach((cellText, columnIndex) => {
+      const cell = document.createElement('td');
+      cell.className = 'markdown-table-align-' + parsed.alignments[columnIndex];
+      appendMarkdownTableCell(cell, cellText);
+      tableRow.appendChild(cell);
+    });
+    tbody.appendChild(tableRow);
+  });
+  table.append(thead, tbody);
+  wrapper.appendChild(table);
+  frame.append(hint, wrapper);
+  container.appendChild(frame);
+  const updateOverflow = () => {
+    const scrollable = wrapper.scrollWidth > wrapper.clientWidth + 1;
+    hint.hidden = !scrollable || wrapper.scrollLeft > 4;
+    wrapper.setAttribute('aria-label', scrollable ? 'Scrollable Markdown table. Swipe or use arrow keys to view more columns.' : 'Markdown table');
+  };
+  wrapper.addEventListener('scroll', updateOverflow, { passive: true });
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(updateOverflow);
+}
+function renderMarkdown(container, markdown, measurePerformance = false) {
+  if (measurePerformance) perfMark('bee-terminal-markdown-render-start');
+  container.replaceChildren();
+  container.classList.add('markdown');
+  const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) { index += 1; continue; }
+    const fence = line.match(/^\s*```\s*([^\s`]*)\s*$/);
+    if (fence) {
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) { codeLines.push(lines[index]); index += 1; }
+      if (index < lines.length) index += 1;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'markdown-code';
+      const header = document.createElement('div');
+      header.className = 'markdown-code-header';
+      const label = document.createElement('span');
+      const language = normalizeCodeLanguage(fence[1]);
+      label.dataset.language = language;
+      label.textContent = fence[1] || 'code';
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'markdown-code-copy';
+      copy.textContent = 'Copy';
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(codeLines.join('\n'));
+          copy.textContent = 'Copied';
+          window.setTimeout(() => { if (copy.isConnected) copy.textContent = 'Copy'; }, 1200);
+        } catch (_) { copy.textContent = 'Copy unavailable'; }
+      });
+      header.append(label, copy);
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      const codeText = codeLines.join('\n');
+      code.dataset.language = language;
+      code.className = 'language-' + language;
+      appendHighlightedCode(code, codeText, language);
+      pre.appendChild(code);
+      wrapper.append(header, pre);
+      container.appendChild(wrapper);
+      continue;
+    }
+    const table = parseMarkdownTable(lines, index);
+    if (table) {
+      renderMarkdownTable(container, table);
+      index = table.end;
+      continue;
+    }
+    const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      const node = document.createElement('h' + heading[1].length);
+      appendInlineMarkdown(node, heading[2]);
+      container.appendChild(node);
+      index += 1;
+      continue;
+    }
+    if (/^\s*(?:\*\s*\*\s*\*|-{3,}|_{3,})\s*$/.test(line)) {
+      container.appendChild(document.createElement('hr'));
+      index += 1;
+      continue;
+    }
+    if (/^\s*>\s?/.test(line)) {
+      const quote = document.createElement('blockquote');
+      while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+        const quoteLine = lines[index].replace(/^\s*>\s?/, '');
+        if (quote.childNodes.length) quote.appendChild(document.createElement('br'));
+        appendInlineMarkdown(quote, quoteLine);
+        index += 1;
+      }
+      container.appendChild(quote);
+      continue;
+    }
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (unordered || ordered) {
+      const list = document.createElement(ordered ? 'ol' : 'ul');
+      const itemPattern = ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/;
+      const continuationPattern = /^\s{2,}\S/;
+      while (index < lines.length) {
+        const itemMatch = lines[index].match(itemPattern);
+        if (!itemMatch) break;
+        const item = document.createElement('li');
+        appendInlineMarkdown(item, itemMatch[1]);
+        index += 1;
+        if (ordered) {
+          while (index < lines.length) {
+            if (itemPattern.test(lines[index])) break;
+            if (continuationPattern.test(lines[index])) {
+              item.appendChild(document.createElement('br'));
+              appendInlineMarkdown(item, lines[index].replace(/^\s{2,}/, ''));
+              index += 1;
+              continue;
+            }
+            if (!lines[index].trim()) {
+              let lookahead = index;
+              while (lookahead < lines.length && !lines[lookahead].trim()) lookahead += 1;
+              if (lookahead < lines.length && itemPattern.test(lines[lookahead])) {
+                index = lookahead;
+                break;
+              }
+              if (lookahead < lines.length && continuationPattern.test(lines[lookahead])) {
+                index = lookahead;
+                continue;
+              }
+            }
+            break;
+          }
+        }
+        list.appendChild(item);
+      }
+      container.appendChild(list);
+      continue;
+    }
+    const paragraphLines = [line];
+    index += 1;
+    while (index < lines.length && lines[index].trim() && !parseMarkdownTable(lines, index) && !/^\s*```/.test(lines[index]) && !/^\s*(?:#{1,6})\s+/.test(lines[index]) && !/^\s*>\s?/.test(lines[index]) && !/^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(lines[index]) && !/^\s*(?:\*\s*\*\s*\*|-{3,}|_{3,})\s*$/.test(lines[index])) {
+      paragraphLines.push(lines[index]);
+      index += 1;
+    }
+    const paragraph = document.createElement('p');
+    paragraphLines.forEach((paragraphLine, lineIndex) => {
+      if (lineIndex) paragraph.appendChild(document.createElement('br'));
+      appendInlineMarkdown(paragraph, paragraphLine);
+    });
+    container.appendChild(paragraph);
+  }
+  if (measurePerformance) {
+    perfMark('bee-terminal-markdown-render-end');
+    perfMeasure('bee-terminal-markdown-render', 'bee-terminal-markdown-render-start', 'bee-terminal-markdown-render-end');
+  }
+}
+function nearBottom() {
+  return messages.scrollHeight - messages.scrollTop - messages.clientHeight < 96;
+}
+function keepVisible(force = false) {
+  if (force || nearBottom()) messages.scrollTop = messages.scrollHeight;
+}
+function hideEmpty() { emptyState.hidden = true; }
+function avatarSource(role) {
+  const configured = String(role === 'assistant' ? (uiConfig.beeAvatar || '') : (uiConfig.userAvatar || '')).trim();
+  if (!configured) return role === 'assistant' ? defaultBeeAvatar : '';
+  if (role === 'assistant' && configured === '/assets/bee-avatar') return configured;
+  if (role === 'user' && configured === '/assets/user-avatar') return configured;
+  return role === 'assistant' ? defaultBeeAvatar : '';
+}
+function createMessageAvatar(role) {
+  const avatar = document.createElement('div');
+  avatar.className = 'message-avatar';
+  avatar.setAttribute('role', 'img');
+  avatar.setAttribute('aria-label', role === 'assistant' ? 'Bee avatar' : 'Your avatar');
+  const source = avatarSource(role);
+  const fallback = () => {
+    avatar.replaceChildren();
+    avatar.textContent = role === 'assistant' ? 'B' : 'Y';
+  };
+  if (!source) {
+    fallback();
+    return avatar;
+  }
+  const image = document.createElement('img');
+  image.src = source;
+  image.alt = role === 'assistant' ? 'Bee' : 'You';
+  image.addEventListener('error', fallback, { once: true });
+  avatar.appendChild(image);
+  return avatar;
+}
+const messageTimeZone = String(uiConfig.timeZone || 'UTC');
+function partsToObject(parts) {
+  return parts.reduce((result, part) => { if (part.type !== 'literal') result[part.type] = part.value; return result; }, {});
+}
+function formatMessageTimestamp(value, referenceNow = new Date()) {
+  const date = new Date(value);
+  const now = new Date(referenceNow);
+  if (!value || Number.isNaN(date.getTime()) || Number.isNaN(now.getTime())) return null;
+  try {
+    const dayOptions = { timeZone: messageTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
+    const dateParts = partsToObject(new Intl.DateTimeFormat('en-US', dayOptions).formatToParts(date));
+    const nowParts = partsToObject(new Intl.DateTimeFormat('en-US', dayOptions).formatToParts(now));
+    const sameDay = dateParts.year === nowParts.year && dateParts.month === nowParts.month && dateParts.day === nowParts.day;
+    const visibleOptions = { timeZone: messageTimeZone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+    if (!sameDay) { visibleOptions.month = 'short'; visibleOptions.day = 'numeric'; }
+    const fullOptions = { timeZone: messageTimeZone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'long' };
+    const visible = new Intl.DateTimeFormat('en-US', visibleOptions).format(date);
+    const full = new Intl.DateTimeFormat('en-US', fullOptions).format(date);
+    return { datetime: date.toISOString(), label: visible, title: full, ariaLabel: full };
+  } catch (_) {
+    return null;
+  }
+}
+function setMessageTimestamp(bubble, value) {
+  if (!bubble) return false;
+  const formatted = formatMessageTimestamp(value);
+  const content = bubble.parentElement;
+  if (!formatted || !content || !content.classList.contains('message-content')) return false;
+  let time = content.querySelector('.message-time');
+  if (!time) {
+    time = document.createElement('time');
+    time.className = 'message-time';
+    content.appendChild(time);
+  }
+  time.dateTime = formatted.datetime;
+  time.textContent = formatted.label;
+  time.title = formatted.title;
+  const row = content.closest('.message-row');
+  const speaker = row && row.classList.contains('assistant') ? 'Bee message' : 'Your message';
+  time.setAttribute('aria-label', speaker + ' sent ' + formatted.ariaLabel);
+  return true;
+}
+function addMessage(role, text, streaming = false, target = messages, scroll = true, at = '') {
+  hideEmpty();
+  const row = document.createElement('div');
+  row.className = 'message-row ' + role;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + role + (streaming ? ' streaming' : '');
+  if (role === 'assistant' && !streaming) renderMarkdown(bubble, text);
+  else bubble.textContent = text;
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  content.appendChild(bubble);
+  if (at) setMessageTimestamp(bubble, at);
+  const avatar = createMessageAvatar(role);
+  if (role === 'user') row.append(content, avatar);
+  else row.append(avatar, content);
+  target.appendChild(row);
+  if (scroll) keepVisible(true);
+  return bubble;
+}
+function addNotice(text, tone = '', target = messages, scroll = true) {
+  hideEmpty();
+  const notice = document.createElement('div');
+  notice.className = 'notice' + (tone ? ' ' + tone : '');
+  notice.textContent = text;
+  target.appendChild(notice);
+  if (scroll) keepVisible();
+}
+function addRunErrorNotice(error) {
+  if (state.terminalErrorShown) return;
+  state.terminalErrorShown = true;
+  addNotice(error || 'Bee reported a failure.', 'error');
+}
+function compactToolValue(value) {
+  if (value === undefined || value === null || value === '') return '';
+  let text = typeof value === 'string' ? value : JSON.stringify(value);
+  if (!text) return '';
+  text = text.replace(/\s+/g, ' ').trim();
+  return text.length > 88 ? text.slice(0, 85) + '…' : text;
+}
+function toolPayloadText(value) {
+  if (value === undefined || value === null || value === '') return '(no payload)';
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
+}
+function toolSize(value) {
+  const text = toolPayloadText(value);
+  return text === '(no payload)' ? '' : (text.length + ' chars');
+}
+function addMediaSearchCandidates(result, target = messages, scroll = true) {
+  if (result && (result.auto_retrieved || result.no_additional_retrieval)) return;
+  if (!state.session || !result || !Array.isArray(result.candidates) || !result.candidates.length) return;
+  const card = document.createElement('section');
+  card.className = 'media-search-card';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Select a ' + result.kind + ' to retrieve';
+  card.appendChild(heading);
+  result.candidates.forEach((candidate) => {
+    const row = document.createElement('div');
+    row.className = 'media-search-candidate';
+    const title = document.createElement('div');
+    title.className = 'media-search-candidate-title';
+    title.textContent = candidate.title || '(untitled result)';
+    row.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'media-search-candidate-meta';
+    meta.textContent = [candidate.source, candidate.duration, candidate.resolution].filter(Boolean).join(' · ');
+    if (meta.textContent) row.appendChild(meta);
+    const snippet = document.createElement('div');
+    snippet.className = 'media-search-candidate-snippet';
+    snippet.textContent = candidate.snippet || '';
+    if (snippet.textContent) row.appendChild(snippet);
+    const source = document.createElement('div');
+    source.className = 'media-search-candidate-source';
+    source.textContent = 'Source: ' + candidate.source_url;
+    row.appendChild(source);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Retrieve';
+    button.addEventListener('click', async () => {
+      if (button.disabled || state.sending || !state.session) return;
+      button.disabled = true;
+      button.textContent = 'Starting…';
+      state.sending = true;
+      state.cancelRequested = false;
+      sendButton.disabled = true;
+      cancel.disabled = false;
+      try {
+        const started = await requestJSON('/api/sessions/' + encodeURIComponent(state.session.id) + '/media/select', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ candidate_id: candidate.candidate_id, token: candidate.token }) });
+        state.runID = started.run_id;
+        button.textContent = 'Selected';
+        await streamRun(started.run_id);
+      } catch (error) {
+        button.textContent = 'Unavailable';
+        addNotice(error.message, 'error');
+      } finally {
+        state.sending = false;
+        state.runID = '';
+        cancel.disabled = true;
+        sendButton.disabled = false;
+        refresh();
+      }
+    });
+    row.appendChild(button);
+    card.appendChild(row);
+  });
+  target.appendChild(card);
+  if (scroll) keepVisible();
+}
+function addToolEvent(kind, payload = {}, target = messages, scroll = true) {
+  hideEmpty();
+  const result = kind === 'result';
+  const error = result && payload && payload.error;
+  const name = (payload && (payload.tool_name || payload.name || payload.type)) || 'tool';
+  const value = result ? (error || payload.output || payload.content) : (payload && (payload.arguments || payload.input));
+  const size = toolSize(value);
+  const preview = compactToolValue(error || value);
+  const status = result ? (error ? 'error' : 'completed') : 'call';
+  const summaryText = name + ' · ' + status + (size ? ' · ' + size : '') + (preview ? ' · ' + preview : '');
+  const event = document.createElement('details');
+  event.className = 'notice tool-event' + (error ? ' error' : '');
+  event.dataset.toolEvent = kind;
+  const summary = document.createElement('summary');
+  summary.textContent = summaryText;
+  const body = document.createElement('pre');
+  body.textContent = toolPayloadText(value);
+  event.append(summary, body);
+  target.appendChild(event);
+  if (scroll) keepVisible();
+  return event;
+}
+function addReasoningEvent(payload = {}, target = messages, scroll = true) {
+  if (!payload) return null;
+  const key = String(payload.reasoning_key || payload.id || ((payload.run_id || 'run') + ':' + (payload.step || 0)));
+  let existing = null;
+  if (target.querySelectorAll) {
+    for (const candidate of target.querySelectorAll('[data-reasoning-key]')) {
+      if (candidate.dataset.reasoningKey === key) { existing = candidate; break; }
+    }
+  }
+  const text = payload.content || payload.delta || '';
+  if (!text && payload.complete && !payload.incomplete && !payload.error_class) return existing;
+  if (existing) {
+    const body = existing.querySelector('pre');
+    const summary = existing.querySelector('summary');
+    if (payload.content) body.textContent = payload.content;
+    else if (payload.delta) body.textContent += payload.delta;
+    const state = payload.incomplete ? 'incomplete' : (payload.complete ? 'complete' : 'streaming');
+    summary.textContent = 'private reasoning · ' + state + (payload.step ? ' · step ' + payload.step : '') + (payload.finish_reason ? ' · ' + payload.finish_reason : '') + (payload.error_class ? ' · ' + payload.error_class : '');
+    return existing;
+  }
+  hideEmpty();
+  const event = document.createElement('details');
+  event.className = 'notice reasoning-event';
+  event.dataset.reasoningKey = key;
+  const summary = document.createElement('summary');
+  const state = payload.incomplete ? 'incomplete' : (payload.complete ? 'complete' : 'streaming');
+  summary.textContent = 'private reasoning · ' + state + (payload.step ? ' · step ' + payload.step : '') + (payload.finish_reason ? ' · ' + payload.finish_reason : '') + (payload.error_class ? ' · ' + payload.error_class : '');
+  const body = document.createElement('pre');
+  body.textContent = payload.content || payload.delta || '';
+  event.append(summary, body);
+  target.appendChild(event);
+  if (scroll) keepVisible();
+  return event;
+}
+function formatArtifactSize(size) {
+  const value = Number(size || 0);
+  if (value < 1024) return value + ' B';
+  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KiB';
+  return (value / (1024 * 1024)).toFixed(1) + ' MiB';
+}
+function renderAttachmentChips() {
+  attachmentChips.replaceChildren();
+  for (const attachment of state.attachments) {
+    const chip = document.createElement('span');
+    chip.className = 'attachment-chip';
+    chip.textContent = (attachment.filename || 'attachment') + ' · ' + (attachment.status || 'uploaded');
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', 'Remove ' + (attachment.filename || 'attachment'));
+    remove.addEventListener('click', () => {
+      state.attachments = state.attachments.filter((item) => item.id !== attachment.id);
+      renderAttachmentChips();
+    });
+    chip.appendChild(remove);
+    attachmentChips.appendChild(chip);
+  }
+}
+function addAttachmentCard(attachment, target = messages, scroll = true) {
+  const attachmentID = attachment && String(attachment.id || '');
+  const artifactID = attachment && String(attachment.artifact_id || '');
+  if (!attachmentID) return;
+  const existing = Array.from(messages.querySelectorAll('[data-attachment-id], [data-artifact-id]'));
+  if (target !== messages && target.querySelectorAll) existing.push(...target.querySelectorAll('[data-attachment-id], [data-artifact-id]'));
+  if (existing.some((item) =>
+    (attachmentID && item.dataset.attachmentId === attachmentID) ||
+    (artifactID && item.dataset.artifactId === artifactID))) return;
+  hideEmpty();
+  const card = document.createElement('section');
+  card.className = 'attachment-card' + (attachment.status === 'failed' ? ' error' : attachment.status === 'processing' ? ' pending' : '');
+  card.dataset.attachmentId = attachmentID;
+  if (artifactID) card.dataset.artifactId = artifactID;
+  const title = document.createElement('strong');
+  title.textContent = attachment.filename || 'attachment';
+  const meta = document.createElement('div');
+  meta.className = 'artifact-card-meta';
+  meta.textContent = (attachment.media_type || 'application/octet-stream') + ' · ' + formatArtifactSize(attachment.size) + ' · ' + (attachment.status || 'uploaded');
+  card.append(title, meta);
+  if (attachment.error) {
+    const error = document.createElement('div');
+    error.textContent = attachment.error;
+    card.appendChild(error);
+  }
+  if (attachment.artifact_id) {
+    const url = '/api/artifacts/' + encodeURIComponent(attachment.artifact_id) + '/download';
+    if (attachment.kind === 'image') {
+      const image = document.createElement('img');
+      image.className = 'attachment-card-preview'; image.loading = 'lazy'; image.src = url; image.alt = attachment.filename || 'uploaded image';
+      card.appendChild(image);
+    } else if (attachment.kind === 'audio') {
+      const audio = document.createElement('audio');
+      audio.controls = true; audio.preload = 'metadata'; audio.src = url;
+      card.appendChild(audio);
+    } else if (attachment.kind === 'text') {
+      const preview = document.createElement('pre');
+      preview.className = 'artifact-preview'; preview.textContent = 'Loading preview…';
+      card.appendChild(preview);
+      lazyArtifactPreview(preview, attachment.artifact_id);
+    }
+    const download = document.createElement('a');
+    download.href = url; download.textContent = 'Download'; download.setAttribute('download', attachment.filename || 'attachment');
+    card.appendChild(download);
+  }
+  target.appendChild(card);
+  if (scroll) keepVisible();
+}
+function uploadOne(file) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/sessions/' + encodeURIComponent(state.selectedID) + '/attachments');
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) uploadProgress.textContent = 'Uploading ' + file.name + ' · ' + Math.round(event.loaded * 100 / event.total) + '%';
+    };
+    xhr.onerror = () => reject(new Error('attachment upload failed'));
+    xhr.onload = () => {
+      let body = null; try { body = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status < 200 || xhr.status >= 300) return reject(new Error(body?.error || 'attachment upload failed'));
+      resolve(body);
+    };
+    const form = new FormData(); form.append('file', file, file.name); xhr.send(form);
+  });
+}
+async function uploadFiles(files) {
+  if (!state.selectedID || state.sending) return;
+  if (state.attachments.length + files.length > 8) { addNotice('You can attach at most 8 files per turn.', 'error'); return; }
+  attachButton.disabled = true;
+  try {
+    for (const file of files) {
+      uploadProgress.textContent = 'Uploading ' + file.name + '…';
+      const attachment = await uploadOne(file);
+      state.attachments.push(attachment); renderAttachmentChips();
+      if (attachment.status === 'processing') watchAttachment(attachment.id);
+    }
+    uploadProgress.textContent = 'Attachments ready. Remove any file before sending if needed.';
+  } catch (error) { uploadProgress.textContent = error.message; addNotice(error.message, 'error'); }
+  finally { attachButton.disabled = false; attachmentInput.value = ''; }
+}
+async function watchAttachment(id, attempts = 40) {
+  if (attempts <= 0) return;
+  try {
+    const latest = await requestJSON('/api/attachments/' + encodeURIComponent(id));
+    const index = state.attachments.findIndex((item) => item.id === id);
+    if (index >= 0) {
+      state.attachments[index] = latest;
+      renderAttachmentChips();
+      if (!latest || (latest.status !== 'ready' && latest.status !== 'failed')) {
+        window.setTimeout(() => watchAttachment(id, attempts - 1), 1000);
+      } else {
+        addNotice(latest.status === 'ready' ? 'Audio attachment is ready.' : (latest.error || 'Audio attachment processing failed.'), latest.status === 'ready' ? 'success' : 'error');
+      }
+    }
+  } catch (_) { window.setTimeout(() => watchAttachment(id, attempts - 1), 1500); }
+}
+function captureArtifactVideoPlayback() {
+  const states = new Map();
+  const videos = messages.querySelectorAll('.artifact-card[data-artifact-id] video');
+  for (const video of videos) {
+    if (states.size >= maxArtifactPlaybackStates) break;
+    const card = video.closest('.artifact-card[data-artifact-id]');
+    const artifactID = card && card.dataset.artifactId;
+    if (!artifactID || states.has(artifactID)) continue;
+    let currentTime = 0;
+    try { currentTime = Number(video.currentTime); } catch (_) { currentTime = 0; }
+    states.set(artifactID, {
+      currentTime: Number.isFinite(currentTime) && currentTime >= 0 ? currentTime : 0,
+      paused: video.paused,
+      volume: Number.isFinite(video.volume) ? video.volume : 1,
+      muted: video.muted,
+      playbackRate: Number.isFinite(video.playbackRate) && video.playbackRate > 0 ? video.playbackRate : 1,
+    });
+  }
+  return states;
+}
+function restoreArtifactVideoPlayback(states) {
+  if (!states || !states.size) return;
+  const restore = (video, playback) => {
+    if (!video.isConnected) return;
+    try { video.volume = playback.volume; } catch (_) {}
+    try { video.muted = playback.muted; } catch (_) {}
+    try { video.playbackRate = playback.playbackRate; } catch (_) {}
+    if (video.readyState >= 1) {
+      try { video.currentTime = playback.currentTime; } catch (_) {}
+    }
+    // Resume only media that was already playing; recovery never autoplays new media.
+    if (playback.paused) {
+      video.pause();
+      return;
+    }
+    try {
+      const playAttempt = video.play();
+      if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+    } catch (_) {}
+  };
+  for (const video of messages.querySelectorAll('.artifact-card[data-artifact-id] video')) {
+    const card = video.closest('.artifact-card[data-artifact-id]');
+    const playback = card && states.get(card.dataset.artifactId);
+    if (!playback) continue;
+    if (video.readyState >= 1) restore(video, playback);
+    else video.addEventListener('loadedmetadata', () => restore(video, playback), { once: true });
+  }
+}
+async function addArtifactCard(artifact, target = messages, scroll = true) {
+  if (!artifact || !artifact.id) return;
+  const existing = Array.from(messages.querySelectorAll('[data-artifact-id]'));
+  if (target !== messages && target.querySelectorAll) existing.push(...target.querySelectorAll('[data-artifact-id]'));
+  if (existing.some((item) => item.dataset.artifactId === artifact.id)) return;
+  hideEmpty();
+  const card = document.createElement('section');
+  card.className = 'artifact-card';
+  card.dataset.artifactId = artifact.id;
+  const header = document.createElement('div');
+  header.className = 'artifact-card-header';
+  const titleWrap = document.createElement('div');
+  const title = document.createElement('div');
+  title.className = 'artifact-card-title';
+  title.textContent = artifact.filename || 'artifact';
+  title.title = artifact.filename || 'artifact';
+  const meta = document.createElement('div');
+  meta.className = 'artifact-card-meta';
+  meta.textContent = (artifact.media_type || 'application/octet-stream') + ' · ' + formatArtifactSize(artifact.size);
+  titleWrap.append(title, meta);
+  const actions = document.createElement('div');
+  actions.className = 'artifact-card-actions';
+  const download = document.createElement('a');
+  download.href = '/api/artifacts/' + encodeURIComponent(artifact.id) + '/download';
+  download.textContent = 'Download';
+  download.setAttribute('download', artifact.filename || 'artifact');
+  actions.appendChild(download);
+  const open = document.createElement('a');
+  open.href = '/api/artifacts/' + encodeURIComponent(artifact.id) + '/download';
+  open.target = '_blank';
+  open.rel = 'noopener';
+  open.textContent = 'Open';
+  actions.appendChild(open);
+  header.append(titleWrap, actions);
+  card.appendChild(header);
+  const mediaType = String(artifact.media_type || '').toLowerCase();
+  if (mediaType.startsWith('image/')) {
+    const image = document.createElement('img');
+    image.className = 'artifact-card-image';
+    image.loading = 'lazy';
+    image.src = '/api/artifacts/' + encodeURIComponent(artifact.id) + '/download';
+    image.alt = artifact.filename || 'image artifact';
+    card.appendChild(image);
+  } else if (mediaType.startsWith('video/')) {
+    const video = document.createElement('video');
+    video.controls = true;
+    video.preload = 'metadata';
+    video.src = '/api/artifacts/' + encodeURIComponent(artifact.id) + '/download';
+    card.appendChild(video);
+  } else if (mediaType.startsWith('audio/')) {
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'metadata';
+    audio.src = '/api/artifacts/' + encodeURIComponent(artifact.id) + '/download';
+    card.appendChild(audio);
+  } else if (artifact.kind === 'text') {
+    const preview = document.createElement('pre');
+    preview.className = 'artifact-preview';
+    preview.textContent = 'Loading preview…';
+    card.appendChild(preview);
+  }
+  target.appendChild(card);
+  if (scroll) keepVisible();
+  if (artifact.kind === 'text') {
+    const preview = card.querySelector('.artifact-preview');
+    lazyArtifactPreview(preview, artifact.id);
+  }
+}
+async function loadHistoryPage(sessionIDValue, before = '', prepend = false) {
+  perfMark('bee-history-fetch-start');
+  const params = new URLSearchParams({ view: 'timeline', limit: '64' });
+  if (before) params.set('before', before);
+  const history = await requestJSON('/api/sessions/' + encodeURIComponent(sessionIDValue) + '/history?' + params.toString());
+  perfMark('bee-history-fetch-end');
+  perfMeasure('bee-history-fetch', 'bee-history-fetch-start', 'bee-history-fetch-end');
+  if (history.metadata) setActiveSession(history.metadata);
+  state.historyBefore = history.next_before || '';
+  state.historyHasMore = Boolean(history.has_more);
+  perfMark('bee-history-render-start');
+  renderHistoryWindow([], [], Array.isArray(history.attachments) ? history.attachments : [], Array.isArray(history.timeline) ? history.timeline : [], { prepend, timelineOnly: true });
+  historyWindowControls.hidden = !state.historyHasMore;
+  loadEarlier.disabled = false;
+  perfMark('bee-history-render-end');
+  perfMeasure('bee-history-render', 'bee-history-render-start', 'bee-history-render-end');
+  return history;
+}
+async function selectSession(session) {
+  if (!session || state.sending) return;
+  state.checkpoint = null;
+  state.continueCheckpointID = '';
+  continueCheckpoint.hidden = true;
+  closeMobileSidebar();
+  setActiveSession(session);
+  clearConversation();
+  setStatus('Loading conversation history…');
+  try {
+    const history = await loadHistoryPage(session.id);
+    state.attachments = [];
+    renderAttachmentChips();
+    const count = Number.isFinite(history.event_count) ? history.event_count : 0;
+    setStatus(count ? count + ' durable events · ready for a new turn.' : 'Ready for a new turn.');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+}
+function renderHistory(history, artifacts = [], attachments = [], timeline = []) {
+  return renderHistoryWindow(history, artifacts, attachments, timeline, { timelineOnly: timeline.length > 0 });
+}
+function renderHistoryWindow(history, artifacts = [], attachments = [], timeline = [], options = {}) {
+  if (!options.prepend) clearConversation();
+  const fragment = document.createDocumentFragment();
+  const attachmentsByID = new Map(attachments.filter((item) => item && item.id).map((item) => [String(item.id), item]));
+  const attachmentsByArtifactID = new Map(attachments.filter((item) => item && item.artifact_id).map((item) => [String(item.artifact_id), item]));
+  const attachmentForRef = (ref) => {
+    if (!ref) return null;
+    const attachmentID = String(ref.id || '');
+    const artifactID = String(ref.artifact_id || '');
+    const metadata = attachmentsByID.get(attachmentID) || attachmentsByArtifactID.get(artifactID);
+    const source = metadata || ref;
+    if (!source || !(source.id || attachmentID)) return null;
+    return {
+      ...source,
+      id: source.id || attachmentID,
+      artifact_id: source.artifact_id || artifactID,
+      media_type: source.media_type || source.content_type || ref.media_type || ref.content_type,
+      size: source.size ?? source.size_bytes ?? ref.size ?? ref.size_bytes ?? 0,
+      status: source.status || ref.status || 'uploaded',
+    };
+  };
+  const renderMessage = (message, at = '') => {
+    if (!message || !message.role) return;
+    if (message.role === 'user' || message.role === 'assistant') {
+      if (message.content) addMessage(message.role, message.content, false, fragment, false, at);
+      if (message.incomplete) addNotice('incomplete provider response', 'error', fragment, false);
+      if (!options.timelineOnly) for (const toolCall of (message.tool_calls || [])) addToolEvent('call', toolCall, fragment, false);
+      for (const ref of (message.attachments || [])) {
+        const attachment = attachmentForRef(ref);
+        if (attachment) addAttachmentCard(attachment, fragment, false);
+      }
+    } else if (message.role === 'tool' && message.content) {
+      addToolEvent('result', { tool_name: message.name, content: message.content }, fragment, false);
+    }
+  };
+  if (timeline.length) {
+    for (const item of timeline) {
+      if (!item || !item.type) continue;
+      if (item.type === 'message') renderMessage(item.message, item.at || '');
+      else if (item.type === 'tool_call') addToolEvent('call', item.tool_call || {}, fragment, false);
+      else if (item.type === 'tool_result') addToolEvent('result', item.tool_result || {}, fragment, false);
+      else if (item.type === 'reasoning') addReasoningEvent(item.reasoning || {}, fragment, false);
+      else if (item.type === 'artifact') addArtifactCard(item.artifact, fragment, false);
+    }
+  } else {
+    for (const message of history) renderMessage(message);
+    for (const artifact of artifacts) addArtifactCard(artifact, fragment, false);
+  }
+  // Older histories may not expose attachment refs on their message events.
+  // Keep those attachments visible, while addAttachmentCard prevents replaying
+  // refs or artifact timeline entries that already rendered the same payload.
+  if (!options.timelineOnly || !options.prepend) for (const attachment of attachments) addAttachmentCard(attachment, fragment, false);
+  if (fragment.childNodes.length) {
+    hideEmpty();
+    if (options.prepend) {
+      const firstContent = Array.from(messages.children).find((node) => node !== historyWindowControls && node !== emptyState);
+      messages.insertBefore(fragment, firstContent || null);
+    } else {
+      messages.appendChild(fragment);
+    }
+  }
+  keepVisible(!options.prepend);
+}
+function renderProjects() {
+  closeProjectMenus();
+  closeProjectPickers();
+  const filterOptions = [
+    { value: '', label: 'All projects' },
+    { value: '__unassigned', label: 'Unassigned' },
+    ...state.projects.map((project) => ({ value: project.id, label: projectLabel(project) })),
+  ];
+  renderProjectPicker(projectFilter, projectFilterMenu, filterOptions, state.activeProjectID, (value) => {
+    state.activeProjectID = value;
+    refresh();
+  });
+  const assignmentOptions = [
+    { value: '', label: 'No project' },
+    ...state.projects.map((project) => ({ value: project.id, label: projectLabel(project) })),
+  ];
+  renderProjectPicker(sessionProject, sessionProjectMenu, assignmentOptions, state.session ? (state.session.project_id || '') : '', assignSelectedProject);
+  projectList.replaceChildren();
+  for (const project of state.projects) {
+    const row = document.createElement('div');
+    row.className = 'project-row';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'project-entry' + (state.activeProjectID === project.id ? ' active' : '');
+    button.dataset.projectId = project.id;
+    button.textContent = projectLabel(project);
+    button.title = project.description || project.root_path || project.name;
+    button.addEventListener('click', () => { closeProjectMenus(); state.activeProjectID = project.id; refresh(); });
+    const menuWrap = document.createElement('div');
+    menuWrap.className = 'project-menu-wrap';
+    const menuID = 'project-actions-' + project.id;
+    const menuTrigger = document.createElement('button');
+    menuTrigger.type = 'button';
+    menuTrigger.className = 'project-menu-trigger';
+    menuTrigger.setAttribute('aria-label', 'Open actions for project ' + project.name);
+    menuTrigger.setAttribute('aria-haspopup', 'menu');
+    menuTrigger.setAttribute('aria-expanded', 'false');
+    menuTrigger.setAttribute('aria-controls', menuID);
+    menuTrigger.title = 'Project actions';
+    menuTrigger.textContent = '…';
+    const menu = document.createElement('div');
+    menu.id = menuID;
+    menu.className = 'project-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Actions for project ' + project.name);
+    menu.setAttribute('data-project-menu', 'true');
+    menu.hidden = true;
+    const completionButton = document.createElement('button');
+    completionButton.type = 'button';
+    completionButton.className = 'project-menu-item';
+    completionButton.setAttribute('role', 'menuitem');
+    completionButton.textContent = project.completed ? 'Reopen project' : 'Mark complete';
+    completionButton.addEventListener('click', (event) => { event.stopPropagation(); closeProjectMenus(); updateProjectCompletion(project); });
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'project-menu-item danger';
+    deleteButton.setAttribute('role', 'menuitem');
+    deleteButton.textContent = 'Delete project';
+    deleteButton.addEventListener('click', (event) => { event.stopPropagation(); closeProjectMenus(); deleteProject(project); });
+    menu.append(completionButton, deleteButton);
+    menuTrigger.addEventListener('click', (event) => { event.stopPropagation(); toggleProjectMenu(menuTrigger, menu); });
+    menuTrigger.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeProjectMenus(true);
+        return;
+      }
+      if (event.key === 'ArrowDown' && openProjectMenu?.trigger === menuTrigger && !menu.hidden) {
+        event.preventDefault();
+        projectMenuItems(menu)[0]?.focus();
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggleProjectMenu(menuTrigger, menu);
+      if (event.key === 'ArrowDown' && !menu.hidden) projectMenuItems(menu)[0]?.focus();
+    });
+    menu.addEventListener('keydown', (event) => {
+      const items = projectMenuItems(menu);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeProjectMenus(true);
+        return;
+      }
+      if (!items.length || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const currentIndex = items.indexOf(document.activeElement);
+      const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (currentIndex + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+      items[nextIndex].focus();
+    });
+    menu.addEventListener('click', (event) => event.stopPropagation());
+    menuWrap.append(menuTrigger, menu);
+    row.append(button, menuWrap);
+    projectList.appendChild(row);
+  }
+}
+function sessionTitleNode(item) {
+  const line = document.createElement('span');
+  line.className = 'session-title-line';
+  if (item.pinned) {
+    const pin = document.createElement('span');
+    pin.className = 'session-pin';
+    pin.textContent = '⌖';
+    pin.title = 'Pinned conversation';
+    pin.setAttribute('aria-label', 'Pinned');
+    line.appendChild(pin);
+  }
+  const title = document.createElement('span');
+  title.className = 'session-title';
+  title.textContent = titleFor(item);
+  line.appendChild(title);
+  return line;
+}
+function buildSessionActions(item, index) {
+  const menuWrap = document.createElement('div');
+  menuWrap.className = 'session-menu-wrap';
+  const menuID = 'session-actions-' + index;
+  const menuTrigger = document.createElement('button');
+  menuTrigger.type = 'button';
+  menuTrigger.className = 'session-menu-trigger';
+  menuTrigger.setAttribute('aria-label', 'Open actions for conversation ' + titleFor(item));
+  menuTrigger.setAttribute('aria-haspopup', 'menu');
+  menuTrigger.setAttribute('aria-expanded', 'false');
+  menuTrigger.setAttribute('aria-controls', menuID);
+  menuTrigger.title = 'Conversation actions';
+  menuTrigger.textContent = '…';
+  const menu = document.createElement('div');
+  menu.id = menuID;
+  menu.className = 'session-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'Actions for conversation ' + titleFor(item));
+  menu.hidden = true;
+  const renameButton = document.createElement('button');
+  renameButton.type = 'button';
+  renameButton.className = 'session-menu-item';
+  renameButton.setAttribute('role', 'menuitem');
+  renameButton.textContent = 'Rename conversation';
+  renameButton.addEventListener('click', (event) => { event.stopPropagation(); closeSessionMenus(); openRenameDialog(item); });
+  const pinButton = document.createElement('button');
+  pinButton.type = 'button';
+  pinButton.className = 'session-menu-item';
+  pinButton.setAttribute('role', 'menuitem');
+  pinButton.textContent = item.pinned ? 'Unpin conversation' : 'Pin conversation';
+  pinButton.addEventListener('click', (event) => { event.stopPropagation(); closeSessionMenus(); togglePinned(item); });
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'session-menu-item danger';
+  deleteButton.dataset.id = item.id;
+  deleteButton.setAttribute('role', 'menuitem');
+  deleteButton.setAttribute('aria-label', 'Delete conversation ' + titleFor(item));
+  deleteButton.textContent = 'Delete conversation';
+  deleteButton.addEventListener('click', (event) => { event.stopPropagation(); closeSessionMenus(); deleteSession(item); });
+  menu.append(renameButton, pinButton, deleteButton);
+  menuTrigger.addEventListener('click', (event) => { event.stopPropagation(); toggleSessionMenu(menuTrigger, menu); });
+  menuTrigger.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); closeSessionMenus(true); return; }
+    if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    toggleSessionMenu(menuTrigger, menu);
+    if (event.key === 'ArrowDown' && !menu.hidden) renameButton.focus();
+  });
+  menu.addEventListener('keydown', (event) => {
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+    if (event.key === 'Escape') { event.preventDefault(); closeSessionMenus(true); return; }
+    if (!items.length || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (currentIndex + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+    items[nextIndex].focus();
+  });
+  menu.addEventListener('click', (event) => event.stopPropagation());
+  menuWrap.append(menuTrigger, menu);
+  return menuWrap;
+}
+function buildSessionRow(item, index, search = false) {
+  const row = document.createElement('div');
+  row.className = 'session-row' + (search ? ' search-result-entry' : '');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'session-entry';
+  button.dataset.id = item.id;
+  const time = document.createElement('span');
+  time.className = 'session-time';
+  time.textContent = timeFor(item.updated_at);
+  if (item.event_count) {
+    const count = document.createElement('span');
+    count.className = 'session-count';
+    count.textContent = item.event_count + ' events';
+    time.appendChild(count);
+  }
+  button.append(sessionTitleNode(item), time);
+  const match = Array.isArray(item.matches) ? item.matches[0] : null;
+  if (search && match && match.snippet) {
+    const snippet = document.createElement('span');
+    snippet.className = 'search-result-snippet';
+    const role = document.createElement('span');
+    role.className = 'search-result-role';
+    role.textContent = match.role || 'match';
+    snippet.append(role, document.createTextNode(match.snippet));
+    button.appendChild(snippet);
+  }
+  button.addEventListener('click', () => selectSession(item));
+  row.append(button, buildSessionActions(item, index));
+  return row;
+}
+function renderSessions(list) {
+  perfMark('bee-session-list-render-start');
+  sessions.replaceChildren();
+  if (!list.length) {
+    const note = document.createElement('div');
+    note.className = 'sidebar-foot';
+    note.textContent = 'No conversations yet.';
+    sessions.appendChild(note);
+    perfMark('bee-session-list-render-end');
+    perfMeasure('bee-session-list-render', 'bee-session-list-render-start', 'bee-session-list-render-end');
+    return;
+  }
+  list.forEach((item, index) => sessions.appendChild(buildSessionRow(item, index)));
+  setActiveSession(list.find((item) => item.id === state.selectedID) || null);
+  perfMark('bee-session-list-render-end');
+  perfMeasure('bee-session-list-render', 'bee-session-list-render-start', 'bee-session-list-render-end');
+}
+function renderSearchResults(list) {
+  sessions.replaceChildren();
+  if (!list.length) {
+    const note = document.createElement('div');
+    note.className = 'sidebar-foot';
+    note.textContent = 'No matching conversations.';
+    sessions.appendChild(note);
+    return;
+  }
+  list.forEach((item, index) => sessions.appendChild(buildSessionRow(item, index, true)));
+  setActiveSession(list.find((item) => item.id === state.selectedID) || null);
+}
+function openRenameDialog(session) {
+  if (!session || state.sending) return;
+  state.renameTarget = session;
+  renameDialogReturnFocus = document.activeElement;
+  renameDialogInput.value = titleFor(session);
+  renameDialogError.textContent = '';
+  renameDialogBackdrop.hidden = false;
+  document.body.style.overflow = 'hidden';
+  renameDialogInput.focus();
+  renameDialogInput.select();
+}
+function closeRenameDialog(returnFocus = true) {
+  renameDialogBackdrop.hidden = true;
+  document.body.style.overflow = '';
+  state.renameTarget = null;
+  const target = renameDialogReturnFocus;
+  renameDialogReturnFocus = null;
+  if (returnFocus && target && target.isConnected) target.focus();
+}
+async function saveRename(event) {
+  if (event) event.preventDefault();
+  const session = state.renameTarget;
+  const title = renameDialogInput.value.trim();
+  if (!session) return;
+  if (!title) { renameDialogError.textContent = 'Conversation title is required.'; renameDialogInput.focus(); return; }
+  if (title.length > 512) { renameDialogError.textContent = 'Conversation title must be 512 characters or fewer.'; renameDialogInput.focus(); return; }
+  renameDialogError.textContent = '';
+  renameDialogSave.disabled = true;
+  try {
+    const updated = await requestJSON('/api/sessions/' + encodeURIComponent(session.id), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title }) });
+    if (state.selectedID === updated.id) setActiveSession(updated);
+    closeRenameDialog(false);
+    await refresh();
+    setStatus('Conversation renamed.');
+  } catch (error) { renameDialogError.textContent = error.message; }
+  finally { renameDialogSave.disabled = false; }
+}
+async function togglePinned(session) {
+  if (!session || state.sending) return;
+  try {
+    const updated = await requestJSON('/api/sessions/' + encodeURIComponent(session.id), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pinned: !Boolean(session.pinned) }) });
+    if (state.selectedID === updated.id) setActiveSession(updated);
+    await refresh();
+    setStatus(updated.pinned ? 'Conversation pinned.' : 'Conversation unpinned.');
+  } catch (error) { setStatus(error.message, 'error'); }
+}
+async function deleteSession(session) {
+  if (!session || state.sending) {
+    if (state.sending) setStatus('Finish or cancel the active run before deleting a conversation.', 'error');
+    return;
+  }
+  closeSessionMenus();
+  const title = titleFor(session);
+  if (!window.confirm('Delete conversation "' + title + '"? Its local history will be permanently removed.')) return;
+  try {
+    await requestJSON('/api/sessions/' + encodeURIComponent(session.id), { method: 'DELETE' });
+    if (state.selectedID === session.id) {
+      state.runID = '';
+      setActiveSession(null);
+      clearConversation();
+    }
+    await refresh();
+    if (!state.session) setStatus('Conversation deleted. Create a new session to begin.');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+}
+async function updateProjectCompletion(project) {
+  if (!project) return;
+  const action = project.completed ? 'reopen' : 'complete';
+  try {
+    const updated = await requestJSON('/api/projects/' + encodeURIComponent(project.id), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ completed: !project.completed }) });
+    state.projects = state.projects.map((item) => item.id === updated.id ? updated : item);
+    renderProjects();
+    if (state.activeProjectID === updated.id) await refresh();
+    addNotice((updated.completed ? 'Completed' : 'Reopened') + ' project "' + updated.name + '".', 'success');
+  } catch (error) { addNotice('Unable to ' + action + ' project: ' + error.message, 'error'); }
+}
+async function deleteProject(project) {
+  if (!project || state.sending) return;
+  if (!window.confirm('Delete project "' + project.name + '"? Assigned conversations will prevent deletion.')) return;
+  try {
+    await requestJSON('/api/projects/' + encodeURIComponent(project.id), { method: 'DELETE' });
+    if (state.activeProjectID === project.id) state.activeProjectID = '';
+    if (state.session && state.session.project_id === project.id) {
+      setActiveSession(null);
+      clearConversation();
+    }
+    await refresh();
+    addNotice('Deleted project "' + project.name + '". Conversation history was not deleted.', 'success');
+  } catch (error) { addNotice(error.message, 'error'); }
+}
+async function assignSelectedProject(projectID) {
+  if (!state.session || state.sending) return;
+  const sessionIDValue = state.session.id;
+  const previous = state.session.project_id || '';
+  if (previous === projectID) return;
+  sessionProject.disabled = true;
+  try {
+    const updated = await requestJSON('/api/sessions/' + encodeURIComponent(sessionIDValue), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project_id: projectID || null }) });
+    setActiveSession(updated);
+    await refresh();
+    if (state.selectedID === sessionIDValue && state.session) setStatus('Conversation moved to ' + (projectID ? (projectFor(projectID)?.name || 'project') : 'No project') + '.');
+  } catch (error) {
+    setPickerValue(sessionProject, previous, projectFor(previous)?.name || 'No project');
+    setStatus(error.message, 'error');
+  } finally {
+    sessionProject.disabled = false;
+  }
+}
+async function requestJSON(url, options) {
+  const response = await fetch(url, options);
+  let data = null;
+  try { data = await response.json(); } catch (_) { data = {}; }
+  if (!response.ok) {
+    const error = new Error(data.error || 'Gateway request failed');
+    error.status = response.status;
+    error.payload = data;
+    throw error;
+  }
+  return data;
+}
+function renderNotificationBadge(result) {
+  const count = Number(result && result.unread_count) || 0;
+  notificationBadge.hidden = count < 1;
+  notificationBadge.textContent = result && result.unread_truncated ? '99+' : String(Math.min(99, count));
+  notificationButton.setAttribute('aria-label', count ? 'Open job notifications, ' + (result.unread_truncated ? '99 or more unread' : count + ' unread') : 'Open job notifications');
+}
+function renderNotifications(result, append = false) {
+  renderNotificationBadge(result || {});
+  if (!append) notificationList.replaceChildren();
+  const items = Array.isArray(result && result.items) ? result.items : [];
+  if (!items.length && !append) {
+    const empty = document.createElement('div');
+    empty.className = 'notification-empty';
+    empty.textContent = 'No job notifications yet.';
+    notificationList.appendChild(empty);
+    notificationNextBefore = 0;
+    notificationLoadOlder.hidden = true;
+    return;
+  }
+  items.forEach((item) => {
+    const row = document.createElement('article');
+    row.className = 'notification-item' + (item.read_at ? '' : ' unread');
+    row.dataset.id = item.id || '';
+    const title = document.createElement('div');
+    title.className = 'notification-item-title';
+    const heading = document.createElement('span');
+    heading.textContent = item.state === 'failed' ? 'Job failed' : 'Job succeeded';
+    const time = document.createElement('time');
+    time.className = 'notification-item-meta';
+    const date = item.created_at ? new Date(item.created_at) : null;
+    time.textContent = date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '';
+    title.append(heading, time);
+    row.appendChild(title);
+    const summary = document.createElement('div');
+    summary.className = 'notification-item-meta';
+    summary.textContent = item.summary || ('Job ' + (item.job_id || 'unknown'));
+    row.appendChild(summary);
+    if (!item.read_at && item.id) {
+      const button = document.createElement('button');
+      button.className = 'action';
+      button.type = 'button';
+      button.dataset.notificationRead = item.id;
+      button.textContent = 'Mark read';
+      row.appendChild(button);
+    }
+    notificationList.appendChild(row);
+  });
+  notificationNextBefore = Number(result && result.next_before) || 0;
+  notificationLoadOlder.hidden = !notificationNextBefore;
+}
+async function refreshNotifications(before = 0, append = false) {
+  if (notificationRefreshInFlight) return notificationRefreshInFlight;
+  const query = before ? '?limit=50&before=' + encodeURIComponent(String(before)) : '?limit=50';
+  notificationRefreshInFlight = requestJSON('/api/notifications' + query).then((result) => {
+    if (!append) notificationList.replaceChildren();
+    renderNotifications(result, append);
+    return result;
+  }).catch((error) => {
+    if (notificationPanel && !notificationPanel.hidden) addNotice('Job notifications unavailable: ' + error.message, 'error');
+    return null;
+  }).finally(() => { notificationRefreshInFlight = null; });
+  return notificationRefreshInFlight;
+}
+function connectNotificationStream() {
+  if (!window.EventSource) return;
+  if (notificationStream) notificationStream.close();
+  notificationStream = new EventSource('/api/notifications/events');
+  notificationStream.onmessage = () => { refreshNotifications(); };
+  notificationStream.onerror = () => {
+    if (notificationStream) notificationStream.close();
+    notificationStream = null;
+    window.setTimeout(connectNotificationStream, 2000);
+  };
+}
+function setNotificationPanelOpen(open) {
+  notificationPanel.hidden = !open;
+  notificationButton.setAttribute('aria-expanded', String(open));
+  if (open) refreshNotifications();
+}
+async function refresh() {
+  const generation = ++state.refreshGeneration;
+  perfMark('bee-startup-refresh-start');
+  try {
+    const projects = await requestJSON('/api/projects');
+    if (generation !== state.refreshGeneration) return;
+    state.projects = Array.isArray(projects) ? projects : [];
+    if (state.activeProjectID && state.activeProjectID !== '__unassigned' && !projectFor(state.activeProjectID)) state.activeProjectID = '';
+    renderProjects();
+    if (state.searchQuery) {
+      await searchSessions();
+      return;
+    }
+    const query = state.activeProjectID === '__unassigned' ? '?unassigned=true' : (state.activeProjectID ? '?project_id=' + encodeURIComponent(state.activeProjectID) : '');
+    const list = await requestJSON('/api/sessions' + query);
+    if (generation !== state.refreshGeneration) return;
+    renderSessions(Array.isArray(list) ? list : []);
+    if (!state.homeMode && !state.session && list.length) {
+      await selectSession(list[0]);
+    } else if (!state.session && !list.length) {
+      clearConversation();
+      setStatus(state.homeMode ? 'Create a new session to begin.' : 'No conversations in this project. Create a new session to begin.');
+    } else if (state.session) {
+      const updated = list.find((item) => item.id === state.selectedID);
+      if (updated) {
+        setActiveSession(updated);
+      } else {
+        setActiveSession(null);
+        clearConversation();
+      }
+    }
+  } catch (error) {
+    setStatus(error.message, 'error');
+  } finally {
+    perfMark('bee-startup-refresh-end');
+    perfMeasure('bee-startup-refresh', 'bee-startup-refresh-start', 'bee-startup-refresh-end');
+  }
+}
+async function searchSessions() {
+  const queryText = state.searchQuery;
+  const generation = ++state.searchGeneration;
+  if (!queryText) {
+    await refresh();
+    return;
+  }
+  const params = new URLSearchParams({ q: queryText });
+  if (state.activeProjectID === '__unassigned') params.set('unassigned', 'true');
+  else if (state.activeProjectID) params.set('project_id', state.activeProjectID);
+  try {
+    const list = await requestJSON('/api/sessions/search?' + params.toString());
+    if (generation !== state.searchGeneration || state.searchQuery !== queryText) return;
+    renderSearchResults(Array.isArray(list) ? list : []);
+  } catch (error) {
+    if (generation !== state.searchGeneration) return;
+    sessions.replaceChildren();
+    const note = document.createElement('div');
+    note.className = 'sidebar-foot';
+    note.textContent = error.message;
+    sessions.appendChild(note);
+  }
+}
+function openCreateProjectDialog() {
+  projectDialogReturnFocus = document.activeElement;
+  projectDialogName.value = '';
+  projectDialogDescription.value = '';
+  projectDialogDirectory.checked = false;
+  projectDialogError.textContent = '';
+  projectDialogBackdrop.hidden = false;
+  document.body.style.overflow = 'hidden';
+  projectDialogName.focus();
+}
+function closeCreateProjectDialog(returnFocus = true) {
+  projectDialogBackdrop.hidden = true;
+  document.body.style.overflow = '';
+  const target = projectDialogReturnFocus;
+  projectDialogReturnFocus = null;
+  if (returnFocus && target && target.isConnected) target.focus();
+}
+async function createProject(event) {
+  if (event) event.preventDefault();
+  const name = projectDialogName.value.trim();
+  if (!name) {
+    projectDialogError.textContent = 'Project name is required.';
+    projectDialogName.focus();
+    return;
+  }
+  if (name.length > 120) {
+    projectDialogError.textContent = 'Project name must be 120 characters or fewer.';
+    projectDialogName.focus();
+    return;
+  }
+  projectDialogError.textContent = '';
+  projectDialogCreate.disabled = true;
+  try {
+    const project = await requestJSON('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, description: projectDialogDescription.value.trim(), create_directory: projectDialogDirectory.checked }) });
+    closeCreateProjectDialog(false);
+    state.activeProjectID = project.id;
+    await refresh();
+    addNotice('Created project "' + project.name + '".', 'success');
+    newProjectButton.focus();
+  } catch (error) {
+    projectDialogError.textContent = error.message;
+  } finally {
+    projectDialogCreate.disabled = false;
+  }
+}
+async function createSessionForCurrentProject() {
+  try {
+    closeMobileSidebar();
+    const activeProject = state.activeProjectID && state.activeProjectID !== '__unassigned' ? projectFor(state.activeProjectID) : null;
+    if (activeProject && activeProject.completed) {
+      if (!window.confirm('Project "' + activeProject.name + '" is completed. Reopen it before creating a new conversation?')) {
+        addNotice('New conversation cancelled; completed projects are read-only until reopened.', 'error');
+        return;
+      }
+      await requestJSON('/api/projects/' + encodeURIComponent(activeProject.id), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ completed: false }) });
+      await refresh();
+    }
+    const payload = state.activeProjectID && state.activeProjectID !== '__unassigned' ? { project_id: state.activeProjectID } : {};
+    const created = await requestJSON('/api/sessions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+    state.homeMode = false;
+    setActiveSession(created);
+    await refresh();
+    clearConversation();
+    setStatus('Ready for a new turn.');
+    return created;
+  } catch (error) { addNotice(error.message, 'error'); }
+}
+async function newSession() {
+  await createSessionForCurrentProject();
+  prompt.focus();
+}
+function ensureAssistantBubble(at = '') {
+  if (!assistantBubble) {
+    assistantTimestamp = at || new Date().toISOString();
+    assistantTimestampFromEvent = Boolean(at);
+    assistantBubble = addMessage('assistant', '', true, messages, false, assistantTimestamp);
+  } else if (at && !assistantTimestampFromEvent && setMessageTimestamp(assistantBubble, at)) {
+    assistantTimestamp = at;
+    assistantTimestampFromEvent = true;
+  }
+  return assistantBubble;
+}
+function updateAssistantTimestamp(at) {
+  if (!at || !assistantBubble || assistantTimestampFromEvent) return;
+  if (setMessageTimestamp(assistantBubble, at)) {
+    assistantTimestamp = at;
+    assistantTimestampFromEvent = true;
+  }
+}
+function appendAssistant(text) {
+  flushAssistantDelta();
+  ensureAssistantBubble();
+  assistantText = text;
+  assistantBubble.textContent = text || 'thinking';
+  keepVisible();
+}
+function flushAssistantDelta() {
+  if (state.assistantFrame) cancelAnimationFrame(state.assistantFrame);
+  state.assistantFrame = 0;
+  if (!state.assistantPending) return;
+  ensureAssistantBubble();
+  if (!assistantText && assistantBubble.textContent === 'thinking') assistantBubble.textContent = '';
+  assistantText += state.assistantPending;
+  state.assistantPending = '';
+  assistantBubble.textContent = assistantText;
+  keepVisible();
+}
+function scheduleAssistantDeltaPaint() {
+  if (state.assistantFrame || !state.assistantPending) return;
+  state.assistantFrame = requestAnimationFrame(() => {
+    state.assistantFrame = 0;
+    flushAssistantDelta();
+  });
+}
+function appendDelta(delta) {
+  if (!delta) return;
+  ensureAssistantBubble();
+  state.assistantPending += delta;
+  scheduleAssistantDeltaPaint();
+}
+function removeEmptyAssistantBubble() {
+  flushAssistantDelta();
+  const visibleText = assistantBubble ? assistantBubble.textContent.trim() : '';
+  if (!assistantBubble || assistantText.trim() || (visibleText !== '' && visibleText !== 'thinking')) return false;
+  const row = assistantBubble.closest('.message-row');
+  if (row) row.remove();
+  assistantBubble = null;
+  assistantText = '';
+  assistantTimestamp = '';
+  assistantTimestampFromEvent = false;
+  return true;
+}
+function finishAssistant() {
+  flushAssistantDelta();
+  if (!assistantBubble) {
+    assistantText = '';
+    return;
+  }
+  if (removeEmptyAssistantBubble()) return;
+  assistantBubble.classList.remove('streaming');
+  renderMarkdown(assistantBubble, assistantText || assistantBubble.textContent || '', true);
+}
+function handleEvent(event) {
+  if (event && event.at) updateAssistantTimestamp(event.at);
+  if (event.type !== 'assistant_delta') flushAssistantDelta();
+  switch (event.type) {
+    case 'run_start':
+      setStatus('Bee is working…');
+      continueCheckpoint.hidden = true;
+      break;
+    case 'session':
+      if (event.metadata) {
+        state.session = { ...(state.session || {}), ...event.metadata };
+        setActiveSession(state.session);
+      }
+      break;
+    case 'assistant_delta': appendDelta(event.delta || ''); break;
+    case 'reasoning_delta': addReasoningEvent({...event.reasoning, delta: event.reasoning && event.reasoning.delta, run_id: event.run_id, reasoning_key: event.run_id + ':' + (event.reasoning && event.reasoning.step)}, messages, true); break;
+    case 'reasoning_final': addReasoningEvent({...event.reasoning, run_id: event.run_id, reasoning_key: event.run_id + ':' + (event.reasoning && event.reasoning.step)}, messages, true); break;
+    case 'assistant_message':
+      if (event.message && event.message.content && (!assistantText || assistantText !== event.message.content)) appendAssistant(event.message.content);
+      break;
+    case 'local_command':
+      removeEmptyAssistantBubble();
+      if (event.command) addNotice(event.command.text || 'Bee handled a local command.', event.command.kind === 'error' ? 'error' : '');
+      break;
+    case 'tool_call': addToolEvent('call', event.tool_call || {}); break;
+    case 'tool_result': addToolEvent('result', event.tool_result || {}); break;
+    case 'media_search': addMediaSearchCandidates(event.media_search || {}); break;
+    case 'media_progress': if (event.media && event.media.message) setStatus(event.media.message, event.media.status === 'failed' ? 'error' : event.media.status === 'completed' ? 'success' : ''); break;
+    case 'artifact': if (event.artifact) addArtifactCard(event.artifact); break;
+    case 'turn_checkpoint':
+      if (event.checkpoint && event.checkpoint.id) {
+        state.checkpoint = event.checkpoint;
+        continueCheckpoint.hidden = false;
+        continueCheckpoint.disabled = false;
+        addNotice('Bee saved a continuation checkpoint (' + (event.checkpoint.why_stopped || 'controlled stop') + ').');
+      }
+      break;
+    case 'approval': addNotice('Bee is waiting for an approval decision.'); break;
+    case 'plan': addNotice('Bee updated the task plan.'); break;
+    case 'run_failure': addRunErrorNotice(event.error); break;
+    case 'run_end':
+      if (event.error) addRunErrorNotice(event.error);
+      if (event.response && event.response.message && event.response.message.content && assistantText !== event.response.message.content) appendAssistant(event.response.message.content);
+      finishAssistant();
+      break;
+    default:
+      if (event.error) addNotice(event.error, 'error');
+  }
+}
+function parseSSEBlock(block) {
+  const lines = block.split('\n');
+  const idLine = lines.find((item) => item.startsWith('id: '));
+  const dataLine = lines.find((item) => item.startsWith('data: '));
+  if (!dataLine) return null;
+  let event = null;
+  try {
+    event = JSON.parse(dataLine.slice(6));
+  } catch (_) {
+    addNotice('Received an unreadable gateway event.', 'error');
+  }
+  const id = idLine ? Number.parseInt(idLine.slice(4), 10) : NaN;
+  return { id: Number.isInteger(id) ? id : null, event };
+}
+async function readRunStatus(runID) {
+  return requestJSON('/api/runs/' + encodeURIComponent(runID));
+}
+async function readRunStream(runID, lastCursor) {
+  // Legacy /events?from= clients remain supported by the gateway.
+  const suffix = lastCursor >= 0 ? '?after=' + encodeURIComponent(String(lastCursor)) : '';
+  const controller = new AbortController();
+  const connectionWatchdog = window.setTimeout(() => controller.abort(), streamInactivityWatchdog);
+  let response;
+  try {
+    response = await fetch('/api/runs/' + encodeURIComponent(runID) + '/events' + suffix, { signal: controller.signal, cache: 'no-store' });
+  } finally {
+    clearTimeout(connectionWatchdog);
+  }
+  if (!response.ok) {
+    let details = {};
+    try { details = await response.json(); } catch (_) {}
+    const error = new Error(details.error || 'Unable to open the response stream');
+    error.replayGap = response.status === 409 && Boolean(details.gap);
+    error.status = response.status;
+    throw error;
+  }
+  if (!response.body) throw new Error('Unable to open the response stream');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let nextCursor = lastCursor;
+  let terminal = false;
+  let replayGap = false;
+  let watchdog = 0;
+  const touch = () => {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = window.setTimeout(() => controller.abort(), streamInactivityWatchdog);
+  };
+  const consume = (block) => {
+    const parsed = parseSSEBlock(block);
+    if (!parsed) return;
+    if (parsed.id !== null) {
+      if (parsed.id <= nextCursor) return;
+      if (parsed.id > nextCursor + 1) replayGap = true;
+      nextCursor = parsed.id;
+    }
+    if (parsed.event) handleEvent(parsed.event);
+    if (parsed.event && parsed.event.type === 'run_end') terminal = true;
+    if (parsed.event && parsed.event.type === 'run_gap') {
+      replayGap = true;
+      addNotice('Part of the live stream could not be replayed; Bee will recover the completed response from durable history.', 'error');
+    }
+  };
+  try {
+    touch();
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      if (part.value && part.value.byteLength) touch();
+      buffer += decoder.decode(part.value, { stream: true });
+      const blocks = buffer.split('\n\n');
+      buffer = blocks.pop();
+      blocks.forEach(consume);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) consume(buffer);
+    return { nextCursor, terminal, replayGap };
+  } catch (error) {
+    const streamError = error instanceof Error ? error : new Error('Response stream interrupted');
+    if (streamError.name === 'AbortError') streamError.watchdog = true;
+    streamError.nextCursor = nextCursor;
+    streamError.terminal = terminal;
+    streamError.replayGap = replayGap;
+    throw streamError;
+  } finally {
+    if (watchdog) clearTimeout(watchdog);
+    try { reader.releaseLock(); } catch (_) {}
+  }
+}
+function statusCrossesReplayGap(status, lastCursor) {
+  if (!status || !status.replay_gap) return false;
+  const gapEnd = Number(status.gap_end_cursor ?? status.last_cursor);
+  return Number.isFinite(gapEnd) && lastCursor < gapEnd;
+}
+async function waitForStreamReconnect(attempt) {
+  const ceiling = Math.min(streamReconnectMaxDelay, streamReconnectBaseDelay * (2 ** Math.min(attempt, 6)));
+  const jitter = Math.floor(Math.random() * Math.max(50, ceiling * 0.25));
+  await new Promise((resolve) => setTimeout(resolve, ceiling + jitter));
+}
+async function streamRun(runID) {
+  state.terminalErrorShown = false;
+  let lastCursor = -1;
+  let attempt = 0;
+  let terminal = false;
+  let replayGap = false;
+  while (true) {
+    if (replayGap) {
+      setStatus('Live replay gap detected; Bee is still working…');
+      try {
+        const status = await readRunStatus(runID);
+        if (status.done) return { completed: true, needsReconcile: true };
+      } catch (error) {
+        if (error.status === 404) return { completed: false, needsReconcile: true };
+      }
+      await waitForStreamReconnect(attempt);
+      attempt += 1;
+      continue;
+    }
+    try {
+      const previousCursor = lastCursor;
+      const result = await readRunStream(runID, lastCursor);
+      lastCursor = result.nextCursor;
+      if (lastCursor > previousCursor) attempt = 0;
+      terminal = terminal || result.terminal;
+      replayGap = replayGap || result.replayGap;
+      if (terminal) return { completed: true, needsReconcile: replayGap };
+      if (replayGap) continue;
+      const status = await readRunStatus(runID);
+      if (statusCrossesReplayGap(status, lastCursor)) {
+        replayGap = true;
+        continue;
+      }
+      if (status.done) {
+        if (Number(status.last_cursor) > lastCursor) continue;
+        return { completed: true, needsReconcile: true };
+      }
+      setStatus('Live stream interrupted; recovering…');
+    } catch (error) {
+      if (Number.isInteger(error.nextCursor) && error.nextCursor > lastCursor) {
+        lastCursor = error.nextCursor;
+        attempt = 0;
+      }
+      terminal = terminal || Boolean(error.terminal);
+      if (terminal) return { completed: true, needsReconcile: Boolean(error.replayGap) };
+      if (error.replayGap) {
+        replayGap = true;
+        continue;
+      }
+      setStatus('Live stream interrupted; recovering…');
+      let status = null;
+      try {
+        status = await readRunStatus(runID);
+      } catch (statusError) {
+        if (statusError.status === 404) return { completed: false, needsReconcile: true };
+      }
+      if (statusCrossesReplayGap(status, lastCursor)) {
+        replayGap = true;
+        continue;
+      }
+      if (status && status.done) {
+        if (Number(status.last_cursor) > lastCursor) continue;
+        return { completed: true, needsReconcile: true };
+      }
+    }
+    await waitForStreamReconnect(attempt);
+    attempt += 1;
+  }
+}
+async function reconcileConversation(sessionID, promptText) {
+  flushAssistantDelta();
+  if (!sessionID || state.selectedID !== sessionID) return false;
+  try {
+    const history = await requestJSON('/api/sessions/' + encodeURIComponent(sessionID) + '/history?view=timeline&limit=128');
+    const historyMessages = [];
+    const timeline = Array.isArray(history.timeline) ? history.timeline : [];
+    const promptIndex = timeline.findLastIndex((item) => item && item.type === 'message' && item.message && item.message.role === 'user' && item.message.content === promptText);
+    const durableAssistant = promptIndex >= 0 && timeline.slice(promptIndex + 1).find((item) => item && item.type === 'message' && item.message && item.message.role === 'assistant' && item.message.content);
+    if (durableAssistant) {
+      const playbackStates = captureArtifactVideoPlayback();
+      state.historyBefore = history.next_before || '';
+      state.historyHasMore = Boolean(history.has_more);
+      historyWindowControls.hidden = !state.historyHasMore;
+      renderHistory(historyMessages, [], Array.isArray(history.attachments) ? history.attachments : [], timeline);
+      restoreArtifactVideoPlayback(playbackStates);
+      const count = Number.isFinite(history.event_count) ? history.event_count : 0;
+      setStatus(count ? count + ' durable events · response recovered.' : 'Response recovered.');
+      return true;
+    }
+  } catch (error) {
+    addNotice('Live stream ended; durable history could not be reloaded: ' + error.message, 'error');
+  }
+  finishAssistant();
+  return false;
+}
+
+async function loadEarlierHistory() {
+  if (state.historyLoading || !state.selectedID || !state.historyHasMore || !state.historyBefore) return;
+  state.historyLoading = true;
+  loadEarlier.disabled = true;
+  const previousHeight = messages.scrollHeight;
+  try {
+    await loadHistoryPage(state.selectedID, state.historyBefore, true);
+    messages.scrollTop += messages.scrollHeight - previousHeight;
+  } catch (error) {
+    addNotice('Earlier history could not be loaded: ' + error.message, 'error');
+  } finally {
+    state.historyLoading = false;
+    loadEarlier.disabled = false;
+  }
+}
+async function send() {
+  if (state.sending) return;
+  const text = prompt.value;
+  if (!text.trim() && !state.attachments.length) return;
+  for (const attachment of state.attachments) {
+    if (attachment.status === 'processing' || attachment.status === 'uploaded' && attachment.kind === 'audio') {
+      addNotice('Audio attachment is still processing. Try sending again when it is ready.', 'error');
+      return;
+    }
+  }
+  if (!state.selectedID && state.homeMode) {
+    const created = await createSessionForCurrentProject();
+    if (!created || !state.selectedID) return;
+  }
+  if (!state.selectedID) { addNotice('Select or create a conversation first.', 'error'); return; }
+  const sessionIDValue = state.selectedID;
+  const submittedText = text.trim() ? text : attachmentOnlyPrompt;
+  const attachmentIDs = state.attachments.map((attachment) => attachment.id);
+  const pendingAttachments = state.attachments.slice();
+  state.sending = true;
+  messages.classList.add('live-streaming');
+  state.cancelRequested = false;
+  sendButton.disabled = true;
+  cancel.disabled = false;
+  prompt.value = '';
+  resizePrompt();
+  const userBubble = addMessage('user', submittedText);
+  setMessageTimestamp(userBubble, new Date().toISOString());
+  for (const attachment of pendingAttachments) addAttachmentCard(attachment);
+  assistantBubble = addMessage('assistant', 'thinking', true);
+  assistantTimestamp = new Date().toISOString();
+  assistantTimestampFromEvent = false;
+  setMessageTimestamp(assistantBubble, assistantTimestamp);
+  assistantText = '';
+  let streamNeedsReconcile = false;
+  try {
+    const started = await requestJSON('/api/sessions/' + encodeURIComponent(sessionIDValue) + '/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: submittedText, attachment_ids: attachmentIDs, checkpoint_id: state.continueCheckpointID || undefined }) });
+    state.continueCheckpointID = '';
+    state.checkpoint = null;
+    continueCheckpoint.hidden = true;
+    state.attachments = [];
+    renderAttachmentChips();
+    uploadProgress.textContent = '';
+    state.runID = started.run_id;
+    const streamResult = await streamRun(state.runID);
+    streamNeedsReconcile = Boolean(streamResult.needsReconcile);
+    setStatus(state.cancelRequested ? 'Run cancelled.' : 'Ready for a new turn.', state.cancelRequested ? '' : '');
+  } catch (error) {
+    addNotice(error.message, 'error');
+    finishAssistant();
+    setStatus('Gateway error.', 'error');
+    streamNeedsReconcile = true;
+  } finally {
+    flushAssistantDelta();
+    if (streamNeedsReconcile) await reconcileConversation(sessionIDValue, submittedText);
+    state.sending = false;
+    messages.classList.remove('live-streaming');
+    state.runID = '';
+    cancel.disabled = true;
+    sendButton.disabled = false;
+    prompt.focus();
+    await refresh();
+  }
+}
+async function stop() {
+  if (!state.runID) return;
+  state.cancelRequested = true;
+  cancel.disabled = true;
+  try {
+    await requestJSON('/api/runs/' + encodeURIComponent(state.runID) + '/cancel', { method: 'POST' });
+    setStatus('Cancellation requested…');
+  } catch (error) { addNotice(error.message, 'error'); }
+}
+function continueFromCheckpoint() {
+  if (state.sending || !state.checkpoint || !state.checkpoint.id) return;
+  state.continueCheckpointID = state.checkpoint.id;
+  prompt.value = 'Continue from the saved checkpoint.';
+  resizePrompt();
+  composerForm.requestSubmit();
+}
+prompt.addEventListener('input', resizePrompt);
+prompt.addEventListener('paste', () => window.setTimeout(resizePrompt, 0));
+prompt.addEventListener('compositionstart', () => { state.composing = true; });
+prompt.addEventListener('compositionend', () => { state.composing = false; });
+prompt.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing || state.composing || event.keyCode === 229) return;
+  event.preventDefault();
+  composerForm.requestSubmit();
+});
+attachButton.addEventListener('click', () => attachmentInput.click());
+continueCheckpoint.addEventListener('click', continueFromCheckpoint);
+attachmentInput.addEventListener('change', () => uploadFiles(Array.from(attachmentInput.files || [])));
+composerForm.addEventListener('submit', (event) => { event.preventDefault(); send(); });
+document.querySelector('.brand').addEventListener('click', (event) => { event.preventDefault(); enterHomeMode(); });
+document.querySelector('#new').addEventListener('click', newSession);
+newProjectButton.addEventListener('click', openCreateProjectDialog);
+wireProjectPicker(projectFilter, projectFilterMenu);
+wireProjectPicker(sessionProject, sessionProjectMenu);
+projectDialogForm.addEventListener('submit', createProject);
+projectDialogCancel.addEventListener('click', () => closeCreateProjectDialog());
+projectDialogClose.addEventListener('click', () => closeCreateProjectDialog());
+projectDialogBackdrop.addEventListener('click', (event) => { if (event.target === projectDialogBackdrop) closeCreateProjectDialog(); });
+projectDialog.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeCreateProjectDialog();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(projectDialog.querySelectorAll('button, input, textarea')).filter((item) => !item.disabled && item.offsetParent !== null);
+  if (!focusable.length) return;
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const nextIndex = (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+  if (currentIndex < 0 || (event.shiftKey && currentIndex === 0) || (!event.shiftKey && currentIndex === focusable.length - 1)) {
+    event.preventDefault();
+    focusable[nextIndex].focus();
+  }
+});
+renameDialogForm.addEventListener('submit', saveRename);
+renameDialogCancel.addEventListener('click', () => closeRenameDialog());
+renameDialogClose.addEventListener('click', () => closeRenameDialog());
+renameDialogBackdrop.addEventListener('click', (event) => { if (event.target === renameDialogBackdrop) closeRenameDialog(); });
+renameDialog.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') { event.preventDefault(); closeRenameDialog(); return; }
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(renameDialog.querySelectorAll('button, input')).filter((item) => !item.disabled && item.offsetParent !== null);
+  if (!focusable.length) return;
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const nextIndex = (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+  if (currentIndex < 0 || (event.shiftKey && currentIndex === 0) || (!event.shiftKey && currentIndex === focusable.length - 1)) {
+    event.preventDefault();
+    focusable[nextIndex].focus();
+  }
+});
+sessionSearchForm.addEventListener('submit', (event) => { event.preventDefault(); setSearchMode(sessionSearchInput.value); searchSessions(); });
+sessionSearchInput.addEventListener('input', () => {
+  setSearchMode(sessionSearchInput.value);
+  clearTimeout(sessionSearchInput.searchTimer);
+  sessionSearchInput.searchTimer = setTimeout(() => searchSessions(), 240);
+});
+sessionSearchClear.addEventListener('click', clearSearch);
+document.querySelector('#refresh').addEventListener('click', refresh);
+notificationButton.addEventListener('click', () => setNotificationPanelOpen(notificationPanel.hidden));
+notificationRefresh.addEventListener('click', () => refreshNotifications());
+notificationLoadOlder.addEventListener('click', () => {
+  if (notificationNextBefore) refreshNotifications(notificationNextBefore, true);
+});
+notificationList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-notification-read]');
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await requestJSON('/api/notifications/' + encodeURIComponent(button.dataset.notificationRead) + '/read', { method: 'POST' });
+    await refreshNotifications();
+  } catch (error) {
+    button.disabled = false;
+    addNotice('Unable to mark notification read: ' + error.message, 'error');
+  }
+});
+loadEarlier.addEventListener('click', loadEarlierHistory);
+window.addEventListener('beforeunload', flushAssistantDelta);
+sidebarToggle.addEventListener('click', () => setSidebarCollapsed(!appShell.classList.contains('sidebar-collapsed')));
+mobileSidebarToggle.addEventListener('click', () => setMobileSidebarOpen(!appShell.classList.contains('sidebar-open')));
+mobileSidebarClose.addEventListener('click', () => closeMobileSidebar(true));
+sidebarBackdrop.addEventListener('click', () => closeMobileSidebar(true));
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#notification-panel, #notification-button')) setNotificationPanelOpen(false);
+  if (!event.target.closest('.session-menu-wrap')) closeSessionMenus();
+  if (!event.target.closest('.project-menu-wrap, .project-menu')) closeProjectMenus();
+  if (!event.target.closest('#project-filter-picker, #session-project-picker-menu-wrap')) closeProjectPickers();
+});
+document.addEventListener('scroll', () => positionProjectMenu(), true);
+window.addEventListener('resize', () => positionProjectMenu());
+window.visualViewport?.addEventListener('resize', () => positionProjectMenu());
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (!renameDialogBackdrop.hidden) {
+    event.preventDefault();
+    closeRenameDialog();
+    return;
+  }
+  if (!projectDialogBackdrop.hidden) {
+    event.preventDefault();
+    closeCreateProjectDialog();
+    return;
+  }
+  if (appShell.classList.contains('sidebar-open')) {
+    event.preventDefault();
+    closeMobileSidebar(true);
+    return;
+  }
+  if (!notificationPanel.hidden) {
+    event.preventDefault();
+    setNotificationPanelOpen(false);
+    notificationButton.focus();
+    return;
+  }
+  closeSessionMenus(true);
+  closeProjectMenus(true);
+  closeProjectPickers(true);
+});
+cancel.addEventListener('click', stop);
+setSidebarCollapsed(storedSidebarCollapsed(), false);
+window.matchMedia('(max-width: 760px)').addEventListener('change', () => {
+  closeMobileSidebar();
+  setSidebarCollapsed(storedSidebarCollapsed(), false);
+});
+resizePrompt();
+refresh();
+refreshNotifications();
+connectNotificationStream();
+</script>
+</body>
+</html>

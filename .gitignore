@@ -1,0 +1,8 @@
+# Local Bee evidence, probes, and generated acceptance output
+/generated/
+
+# Local builds and release bundles
+/bee-gateway
+/bee
+/dist-*/
+/changed.txt

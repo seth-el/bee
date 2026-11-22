@@ -1,0 +1,16 @@
+[Unit]
+Description=Bee scheduler tick (bee jobs run-due)
+Documentation=file://%h/projects/bee/docs/operations/recurring-jobs-timer.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.bee/workspace
+ExecStart=%h/.local/bin/bee jobs run-due --config %h/.bee/config.json
+# Due jobs run one after another, each up to its contract's
+# max_wall_clock_seconds. Keep this above the sum of the budgets that can be
+# due in one tick (raise it if any budget is over an hour). A stopped tick
+# leaves a running attempt that becomes stale once its lease (budget plus 5
+# minutes) passes; `bee jobs recover` handles it explicitly.
+TimeoutStartSec=1h

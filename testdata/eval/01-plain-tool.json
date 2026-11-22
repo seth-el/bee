@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "plain tool call",
+  "turns": [
+    {
+      "prompt": "inspect the fixture",
+      "responses": [
+        {
+          "tool_calls": [
+            {
+              "id": "plain-1",
+              "type": "function",
+              "name": "inspect_fixture",
+              "arguments": "{\"target\":\"alpha\"}"
+            }
+          ]
+        },
+        {
+          "content": "done"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "inspect_fixture",
+      "kind": "static",
+      "output": "bounded fixture observation",
+      "mutability": "read_only"
+    }
+  ],
+  "expected": [
+    {"kind": "session", "outcome": "created"},
+    {"kind": "turn", "outcome": "user"},
+    {"kind": "tool_call", "tool": "inspect_fixture", "args": {"target": "alpha"}},
+    {"kind": "tool_result", "tool": "inspect_fixture", "outcome": "succeeded"}
+  ]
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Commit and push Bee's workspace and session history nightly
+
+[Timer]
+# 03:00 local, after the 00:30 dreaming run (and clear of DST gaps).
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target
